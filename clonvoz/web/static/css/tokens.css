@@ -1,0 +1,129 @@
+/*
+ * Sistema de diseño: un solo lugar para colores, tipografía y tiempos (RNF-04).
+ *
+ * PALETA DE RUTAS (RNF-05)
+ * Los cuatro colores con significado —ruta de audio, ruta de texto, generación y
+ * salida— no se eligieron a ojo: se verificaron con un validador de paletas que
+ * mide la separación entre todos los pares, bajo daltonismo (protanopia,
+ * deuteranopia, tritanopia) y con visión normal, en modo claro y en modo oscuro.
+ *
+ * La primera propuesta (teal, ámbar, violeta, verde) FALLÓ: teal y verde
+ * quedaban a ΔE 11.3 con visión normal, es decir indistinguibles incluso sin
+ * daltonismo. De las 70 combinaciones posibles de cuatro tonos, solo dos pasan
+ * todas las verificaciones en ambos modos; esta es una de ellas.
+ *
+ * Al sustituir estos valores por los del diagrama de arquitectura, vuelve a
+ * pasar el validador: dos colores que se ven distintos en el monitor pueden ser
+ * el mismo color proyectado o para una parte del jurado.
+ *
+ * La etapa 1 es toda ruta de audio y usa únicamente --ruta-audio. Los otros tres
+ * quedan definidos para las etapas 3 a 6.
+ *
+ * Los mismos colores existen en clonvoz/graficas.py (diccionario TEMAS), porque
+ * las figuras se renderizan en el servidor: SI CAMBIAS UNOS, CAMBIA LOS OTROS.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Superficies */
+  --superficie-pagina: #f1f5f9;
+  --superficie: #ffffff;
+  --superficie-hundida: #f1f5f9;
+  --borde: #e2e8f0;
+  --borde-fuerte: #cbd5e1;
+
+  /* Texto: los valores, etiquetas y leyendas usan SIEMPRE estos tonos, nunca el
+     color de una ruta. El color lo lleva la marca que va al lado, no el texto. */
+  --texto: #0f172a;
+  --texto-suave: #52606d;
+  --texto-tenue: #7b8794;
+
+  /* Rutas del pipeline (validadas, ver nota de arriba) */
+  --ruta-audio: #2a78d6;
+  --ruta-texto: #eda100;
+  --ruta-generacion: #e87ba4;
+  --ruta-salida: #008300;
+
+  /* Estado: fijos, nunca cambian con el tema, y nunca se usan como color de
+     serie. Siempre acompañados de icono y texto, jamás solo el color. */
+  --estado-bien: #0ca30c;
+  --estado-aviso: #fab219;
+  --estado-critico: #d03b3b;
+
+  /* Tipografía: una sola familia en toda la aplicación, del sistema. Nada de
+     fuentes por CDN: el día de la exposición no se puede depender de internet. */
+  --fuente: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --texto-xs: 0.8125rem;
+  --texto-sm: 0.9375rem;
+  --texto-base: 1.0625rem;
+  --texto-lg: 1.1875rem;
+  --texto-xl: 1.4375rem;
+  --texto-2xl: 1.875rem;
+
+  /* Espaciado */
+  --espacio-1: 0.25rem;
+  --espacio-2: 0.5rem;
+  --espacio-3: 0.75rem;
+  --espacio-4: 1rem;
+  --espacio-5: 1.5rem;
+  --espacio-6: 2rem;
+  --espacio-7: 3rem;
+
+  --radio: 10px;
+  --radio-sm: 6px;
+  --sombra: 0 1px 2px rgb(15 23 42 / 6%), 0 4px 12px rgb(15 23 42 / 4%);
+
+  /* Transiciones: todo cambio de estado visible se anima entre 200 y 400 ms con
+     una curva de aceleración natural, nunca de golpe (RNF-06). */
+  --curva: cubic-bezier(0.4, 0, 0.2, 1);
+  --transicion-rapida: 200ms;
+  --transicion: 250ms;
+  --transicion-lenta: 400ms;
+}
+
+/* El modo oscuro es un modo elegido, no una inversión automática: el acento
+   tiene su propio paso, validado contra la superficie oscura (RNF-07). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    color-scheme: dark;
+
+    --superficie-pagina: #080e1a;
+    --superficie: #0f172a;
+    --superficie-hundida: #16203a;
+    --borde: #22304a;
+    --borde-fuerte: #35456a;
+
+    --texto: #f1f5f9;
+    --texto-suave: #9aa8bd;
+    --texto-tenue: #7d8ca3;
+
+    --ruta-audio: #3987e5;
+    --ruta-texto: #c98500;
+    --ruta-generacion: #d55181;
+    --ruta-salida: #008300;
+
+    --sombra: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 12px rgb(0 0 0 / 25%);
+  }
+}
+
+:root[data-tema="oscuro"] {
+  color-scheme: dark;
+
+  --superficie-pagina: #080e1a;
+  --superficie: #0f172a;
+  --superficie-hundida: #16203a;
+  --borde: #22304a;
+  --borde-fuerte: #35456a;
+
+  --texto: #f1f5f9;
+  --texto-suave: #9aa8bd;
+  --texto-tenue: #7d8ca3;
+
+  --ruta-audio: #3987e5;
+  --ruta-texto: #c98500;
+  --ruta-generacion: #d55181;
+  --ruta-salida: #008300;
+
+  --sombra: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 12px rgb(0 0 0 / 25%);
+}

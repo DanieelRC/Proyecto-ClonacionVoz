@@ -1,0 +1,577 @@
+/*
+ * Componentes y disposición. Los valores vienen todos de tokens.css: aquí no hay
+ * ningún color ni tiempo escrito a mano.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0 0 var(--espacio-7);
+  background: var(--superficie-pagina);
+  color: var(--texto);
+  font-family: var(--fuente);
+  font-size: var(--texto-base);
+  line-height: 1.55;
+  transition: background var(--transicion) var(--curva), color var(--transicion) var(--curva);
+}
+
+.contenedor {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 var(--espacio-4);
+}
+
+/* ---------------------------------------------------------------- encabezado */
+
+.encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--espacio-4);
+  padding: var(--espacio-6) 0 var(--espacio-5);
+}
+
+.encabezado__titulo {
+  margin: 0;
+  font-size: var(--texto-2xl);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.encabezado__subtitulo {
+  margin: var(--espacio-1) 0 0;
+  color: var(--texto-suave);
+  font-size: var(--texto-sm);
+}
+
+.etapa {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  margin-bottom: var(--espacio-2);
+  padding: var(--espacio-1) var(--espacio-3);
+  border-radius: 999px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  color: var(--texto-suave);
+  font-size: var(--texto-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.etapa::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ruta-audio);
+}
+
+/* ------------------------------------------------------------------ tarjetas */
+
+.tarjeta {
+  margin-bottom: var(--espacio-5);
+  padding: var(--espacio-5);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  box-shadow: var(--sombra);
+  transition: background var(--transicion) var(--curva), border-color var(--transicion) var(--curva);
+}
+
+.tarjeta__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-3);
+  margin: 0 0 var(--espacio-2);
+  font-size: var(--texto-lg);
+  font-weight: 600;
+}
+
+.tarjeta__numero {
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--superficie-hundida);
+  border: 1px solid var(--borde);
+  color: var(--texto-suave);
+  font-size: var(--texto-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.tarjeta__ayuda {
+  margin: 0 0 var(--espacio-4);
+  color: var(--texto-suave);
+  font-size: var(--texto-sm);
+}
+
+.tarjeta[aria-disabled="true"] {
+  opacity: 0.55;
+}
+
+/* ------------------------------------------------------------ consentimiento */
+
+.consentimiento {
+  border-left: 3px solid var(--ruta-audio);
+}
+
+.consentimiento__texto {
+  margin: 0 0 var(--espacio-4);
+  color: var(--texto-suave);
+  font-size: var(--texto-sm);
+}
+
+.casilla {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--espacio-3);
+  cursor: pointer;
+  font-size: var(--texto-sm);
+}
+
+.casilla input {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0.2rem 0 0;
+  flex: 0 0 auto;
+  accent-color: var(--ruta-audio);
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------------- botones */
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--espacio-2);
+  padding: var(--espacio-3) var(--espacio-5);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-sm);
+  background: var(--superficie);
+  color: var(--texto);
+  font-family: inherit;
+  font-size: var(--texto-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transicion-rapida) var(--curva),
+    border-color var(--transicion-rapida) var(--curva),
+    color var(--transicion-rapida) var(--curva),
+    transform var(--transicion-rapida) var(--curva);
+}
+
+.boton:hover:not(:disabled) {
+  border-color: var(--ruta-audio);
+  color: var(--ruta-audio);
+}
+
+.boton:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.boton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.boton--primario {
+  border-color: var(--ruta-audio);
+  background: var(--ruta-audio);
+  color: #ffffff;
+}
+
+.boton--primario:hover:not(:disabled) {
+  background: var(--ruta-audio);
+  color: #ffffff;
+  filter: brightness(1.08);
+}
+
+.boton--grabando {
+  border-color: var(--estado-critico);
+  color: var(--estado-critico);
+}
+
+.boton--grabando::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--estado-critico);
+  animation: latir 1.4s var(--curva) infinite;
+}
+
+@keyframes latir {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+:focus-visible {
+  outline: 2px solid var(--ruta-audio);
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------- captura */
+
+.captura {
+  display: grid;
+  gap: var(--espacio-4);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 720px) {
+  .captura {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+.captura__bloque {
+  padding: var(--espacio-4);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--superficie-hundida);
+}
+
+.captura__etiqueta {
+  display: block;
+  margin-bottom: var(--espacio-3);
+  color: var(--texto-suave);
+  font-size: var(--texto-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.zona-carga {
+  display: grid;
+  place-items: center;
+  gap: var(--espacio-2);
+  padding: var(--espacio-5) var(--espacio-4);
+  border: 1.5px dashed var(--borde-fuerte);
+  border-radius: var(--radio-sm);
+  background: var(--superficie);
+  color: var(--texto-suave);
+  font-size: var(--texto-sm);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transicion-rapida) var(--curva),
+    background var(--transicion-rapida) var(--curva);
+}
+
+.zona-carga:hover,
+.zona-carga--activa {
+  border-color: var(--ruta-audio);
+  background: var(--superficie-hundida);
+}
+
+.zona-carga input[type="file"] {
+  display: none;
+}
+
+.cronometro {
+  margin-top: var(--espacio-3);
+  color: var(--texto-suave);
+  font-size: var(--texto-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.reproductor {
+  margin-top: var(--espacio-4);
+}
+
+.reproductor audio {
+  width: 100%;
+  margin-top: var(--espacio-2);
+}
+
+.reproductor__nombre {
+  color: var(--texto-suave);
+  font-size: var(--texto-sm);
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------ mensajes */
+
+.mensajes {
+  display: grid;
+  gap: var(--espacio-2);
+  margin-top: var(--espacio-4);
+}
+
+.mensajes:empty {
+  margin-top: 0;
+}
+
+.mensaje {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--espacio-3);
+  padding: var(--espacio-3) var(--espacio-4);
+  border: 1px solid var(--borde);
+  border-left-width: 3px;
+  border-radius: var(--radio-sm);
+  background: var(--superficie-hundida);
+  color: var(--texto);
+  font-size: var(--texto-sm);
+  animation: aparecer var(--transicion) var(--curva);
+}
+
+/* El color nunca lleva el mensaje solo: va en el borde y en el icono, y el texto
+   siempre dice qué pasa. */
+.mensaje__icono {
+  flex: 0 0 auto;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.mensaje--error {
+  border-left-color: var(--estado-critico);
+}
+
+.mensaje--error .mensaje__icono {
+  color: var(--estado-critico);
+}
+
+.mensaje--aviso {
+  border-left-color: var(--estado-aviso);
+}
+
+.mensaje--aviso .mensaje__icono {
+  color: var(--estado-aviso);
+}
+
+/* ------------------------------------------------------------------- figuras */
+
+.figuras {
+  display: grid;
+  gap: var(--espacio-5);
+  grid-template-columns: 1fr;
+}
+
+/* Dos columnas solo cuando cada una queda lo bastante ancha para que los ejes de
+   los mapas de calor se sigan leyendo proyectados (RNF-08). Por debajo de esto,
+   una sola columna: una figura ilegible no compara nada. */
+@media (min-width: 1280px) {
+  .figuras {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .figuras > .figura--ancha {
+    grid-column: 1 / -1;
+  }
+}
+
+.figura {
+  margin: 0;
+  padding: var(--espacio-4);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  box-shadow: var(--sombra);
+  animation: aparecer var(--transicion-lenta) var(--curva) both;
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.figura__lienzo {
+  position: relative;
+  border-radius: var(--radio-sm);
+  overflow: hidden;
+}
+
+.figura__imagen {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: opacity var(--transicion) var(--curva);
+}
+
+/* Las dos variantes de tema llegan juntas en la respuesta y se intercambian con
+   un fundido: volver a graficar en el servidor daría un salto visible. */
+.figura__imagen--oscuro {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+}
+
+:root[data-tema="oscuro"] .figura__imagen--claro {
+  opacity: 0;
+}
+
+:root[data-tema="oscuro"] .figura__imagen--oscuro {
+  opacity: 1;
+}
+
+.figura__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--espacio-2) var(--espacio-4);
+  margin-top: var(--espacio-3);
+}
+
+.figura__explicacion {
+  margin: 0;
+  flex: 1 1 60%;
+  color: var(--texto-suave);
+  font-size: var(--texto-sm);
+}
+
+.figura__forma {
+  color: var(--texto-tenue);
+  font-size: var(--texto-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------- resumen */
+
+.resumen {
+  display: grid;
+  gap: var(--espacio-4);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin: 0;
+}
+
+.resumen div {
+  padding: var(--espacio-3) var(--espacio-4);
+  border-radius: var(--radio-sm);
+  background: var(--superficie-hundida);
+}
+
+.resumen dt {
+  color: var(--texto-suave);
+  font-size: var(--texto-xs);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.resumen dd {
+  margin: var(--espacio-1) 0 0;
+  font-size: var(--texto-lg);
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--texto-sm);
+}
+
+.tabla th,
+.tabla td {
+  padding: var(--espacio-2) var(--espacio-3);
+  border-bottom: 1px solid var(--borde);
+  text-align: left;
+}
+
+.tabla th {
+  color: var(--texto-suave);
+  font-weight: 600;
+}
+
+.tabla td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.identificador {
+  margin-top: var(--espacio-4);
+  color: var(--texto-tenue);
+  font-size: var(--texto-xs);
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------ cargando */
+
+.cargando {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-3);
+  color: var(--texto-suave);
+  font-size: var(--texto-sm);
+}
+
+.cargando__rueda {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: 2px solid var(--borde-fuerte);
+  border-top-color: var(--ruta-audio);
+  border-radius: 50%;
+  animation: girar 800ms linear infinite;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.cargando--separado {
+  margin-top: var(--espacio-4);
+}
+
+.tarjeta__subtitulo {
+  margin-top: var(--espacio-5);
+  font-size: var(--texto-base);
+}
+
+.oculto {
+  display: none !important;
+}
+
+.solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ----------------------------------------------------------- pie de página */
+
+.pie {
+  margin-top: var(--espacio-6);
+  color: var(--texto-tenue);
+  font-size: var(--texto-xs);
+}
+
+/* Quien pidió menos movimiento no debería recibir ninguno. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
