@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Etapa 1 · Preprocesamiento de audio</title>
+<title>Preprocesamiento de audio</title>
 <!-- Icono incrustado: evita el 404 de /favicon.ico y no depende de ningún archivo. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg fill='%232a78d6'%3E%3Crect x='1' y='6' width='2' height='4' rx='1'/%3E%3Crect x='4.5' y='3' width='2' height='10' rx='1'/%3E%3Crect x='8' y='1' width='2' height='14' rx='1'/%3E%3Crect x='11.5' y='4.5' width='2' height='7' rx='1'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
@@ -41,70 +41,46 @@
 
   <header class="encabezado">
     <div>
-      <span class="etapa">Etapa 1 de 6</span>
       <h1 class="encabezado__titulo">Preprocesamiento de audio</h1>
       <p class="encabezado__subtitulo">
         Cómo ve una computadora el sonido: forma de onda, espectrograma,
         mel-espectrograma de {{ n_mels }} canales y contorno de entonación.
-        Sin modelo y sin GPU — solo procesamiento de señales.
       </p>
     </div>
-    <button type="button" class="boton" id="conmutador-tema" aria-live="polite">
+    <button type="button" class="boton boton--discreto" id="conmutador-tema">
       <span id="etiqueta-tema">Modo oscuro</span>
     </button>
   </header>
 
-  <!-- Paso 1 — consentimiento (RNF-12) -->
-  <section class="tarjeta consentimiento" aria-labelledby="titulo-consentimiento">
-    <h2 class="tarjeta__titulo" id="titulo-consentimiento">
-      <span class="tarjeta__numero">1</span> Consentimiento
-    </h2>
-    <p class="consentimiento__texto">
-      Este es un proyecto académico de <strong>clonación de voz</strong>. El audio que
-      grabes o subas se usará para analizar y reproducir las características de esa
-      voz. El procesamiento ocurre en esta computadora, el audio no se guarda en
-      ningún archivo ni se envía a ningún servicio externo, y al cerrar la página no
-      queda rastro de él. No uses la voz de otra persona sin su permiso.
-    </p>
-    <label class="casilla">
-      <input type="checkbox" id="acepto">
-      <span>
-        Entiendo que el audio se usará para clonación de voz con fines académicos y
-        doy mi consentimiento para procesarlo.
-      </span>
-    </label>
-  </section>
-
-  <!-- Paso 2 — captura (RF-01, RF-02) -->
-  <section class="tarjeta" id="tarjeta-captura" aria-labelledby="titulo-captura" aria-disabled="true">
-    <h2 class="tarjeta__titulo" id="titulo-captura">
-      <span class="tarjeta__numero">2</span> Audio de referencia
-    </h2>
-    <p class="tarjeta__ayuda">
-      Graba tu voz o sube un archivo .wav. Entre
-      {{ duracion_recomendada_minima | int }} y {{ duracion_recomendada_maxima | int }}
-      segundos de habla continua es lo ideal; se aceptan desde
-      {{ duracion_minima | int }} y hasta {{ duracion_maxima | int }} segundos.
-    </p>
+  <section class="panel" aria-labelledby="titulo-captura">
+    <h2 class="solo-lectores" id="titulo-captura">Audio de referencia</h2>
 
     <div class="captura">
-      <div class="captura__bloque">
-        <span class="captura__etiqueta">Grabar con el micrófono</span>
-        <button type="button" class="boton" id="boton-grabar" disabled>
-          <span id="etiqueta-grabar">Empezar a grabar</span>
-        </button>
-        <p class="cronometro" id="cronometro">00:00</p>
-      </div>
+      <button type="button" class="boton" id="boton-grabar">
+        <span id="etiqueta-grabar">Grabar</span>
+      </button>
 
-      <div class="captura__bloque">
-        <span class="captura__etiqueta">Subir un archivo</span>
-        <label class="zona-carga" id="zona-carga">
-          <input type="file" id="archivo" accept=".wav,audio/wav,audio/x-wav" disabled>
-          <strong>Elige un .wav</strong>
-          <span>o arrástralo aquí (máximo {{ tamano_maximo_mb }} MB)</span>
-        </label>
-      </div>
+      <label class="zona-carga" id="zona-carga">
+        <input type="file" id="archivo" accept=".wav,audio/wav,audio/x-wav">
+        <span>Elige un <strong>.wav</strong> o arrástralo aquí</span>
+      </label>
+
+      <button type="button" class="boton boton--primario" id="boton-analizar" disabled>
+        Analizar
+      </button>
+
+      <span class="cronometro oculto" id="cronometro">00:00</span>
+
+      <span class="cargando oculto" id="cargando">
+        <span class="cargando__rueda" aria-hidden="true"></span>
+        <span>Analizando…</span>
+      </span>
     </div>
+
+    <p class="ayuda">
+      Entre {{ duracion_recomendada_minima | int }} y {{ duracion_recomendada_maxima | int }}
+      segundos de habla continua es lo ideal.
+    </p>
 
     <!-- RF-04: confirmar el audio antes de analizarlo -->
     <div class="reproductor oculto" id="reproductor">
@@ -115,25 +91,6 @@
     <div class="mensajes" id="mensajes" role="status" aria-live="polite"></div>
   </section>
 
-  <!-- Paso 3 — análisis -->
-  <section class="tarjeta" aria-labelledby="titulo-analisis">
-    <h2 class="tarjeta__titulo" id="titulo-analisis">
-      <span class="tarjeta__numero">3</span> Analizar
-    </h2>
-    <p class="tarjeta__ayuda">
-      Se calculan las cuatro representaciones. El contorno de F0 es el paso más
-      lento: en audios largos puede tardar unos segundos.
-    </p>
-    <button type="button" class="boton boton--primario" id="boton-analizar" disabled>
-      Calcular las cuatro visualizaciones
-    </button>
-    <div class="cargando cargando--separado oculto" id="cargando">
-      <span class="cargando__rueda" aria-hidden="true"></span>
-      <span>Analizando el audio…</span>
-    </div>
-  </section>
-
-  <!-- Resultados -->
   <div id="resultados" class="oculto">
     <div class="figuras">
 
@@ -188,11 +145,10 @@
 
     </div>
 
-    <section class="tarjeta" aria-labelledby="titulo-resumen">
-      <h2 class="tarjeta__titulo" id="titulo-resumen">Resumen de la corrida</h2>
-      <dl class="resumen" id="resumen"></dl>
+    <dl class="resumen" id="resumen"></dl>
 
-      <h3 class="tarjeta__titulo tarjeta__subtitulo">Tiempo por paso</h3>
+    <details class="detalle">
+      <summary>Tiempo por paso</summary>
       <table class="tabla">
         <caption class="solo-lectores">Milisegundos que tardó cada paso del análisis</caption>
         <thead>
@@ -200,9 +156,8 @@
         </thead>
         <tbody id="tiempos"></tbody>
       </table>
-
       <p class="identificador" id="identificador"></p>
-    </section>
+    </details>
   </div>
 
   <footer class="pie">

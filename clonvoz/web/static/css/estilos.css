@@ -1,6 +1,10 @@
 /*
  * Componentes y disposición. Los valores vienen todos de tokens.css: aquí no hay
  * ningún color ni tiempo escrito a mano.
+ *
+ * La interfaz es deliberadamente escueta: una fila para elegir el audio y las
+ * cuatro figuras. Lo único que se conserva con peso visual son las explicaciones
+ * de cada representación, porque explicar es el propósito del proyecto.
  */
 
 *,
@@ -35,7 +39,7 @@ body {
 .encabezado {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--espacio-4);
   padding: var(--espacio-6) 0 var(--espacio-5);
@@ -49,107 +53,26 @@ body {
 }
 
 .encabezado__subtitulo {
-  margin: var(--espacio-1) 0 0;
+  margin: var(--espacio-2) 0 0;
+  max-width: 62ch;
   color: var(--texto-suave);
   font-size: var(--texto-sm);
 }
 
-.etapa {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--espacio-2);
-  margin-bottom: var(--espacio-2);
-  padding: var(--espacio-1) var(--espacio-3);
-  border-radius: 999px;
-  background: var(--superficie);
-  border: 1px solid var(--borde);
-  color: var(--texto-suave);
-  font-size: var(--texto-xs);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
+/* --------------------------------------------------------------------- panel */
 
-.etapa::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--ruta-audio);
-}
-
-/* ------------------------------------------------------------------ tarjetas */
-
-.tarjeta {
-  margin-bottom: var(--espacio-5);
+.panel {
   padding: var(--espacio-5);
   border: 1px solid var(--borde);
   border-radius: var(--radio);
   background: var(--superficie);
-  box-shadow: var(--sombra);
   transition: background var(--transicion) var(--curva), border-color var(--transicion) var(--curva);
 }
 
-.tarjeta__titulo {
-  display: flex;
-  align-items: center;
-  gap: var(--espacio-3);
-  margin: 0 0 var(--espacio-2);
-  font-size: var(--texto-lg);
-  font-weight: 600;
-}
-
-.tarjeta__numero {
-  display: inline-grid;
-  place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--superficie-hundida);
-  border: 1px solid var(--borde);
-  color: var(--texto-suave);
-  font-size: var(--texto-sm);
-  font-variant-numeric: tabular-nums;
-}
-
-.tarjeta__ayuda {
-  margin: 0 0 var(--espacio-4);
-  color: var(--texto-suave);
-  font-size: var(--texto-sm);
-}
-
-.tarjeta[aria-disabled="true"] {
-  opacity: 0.55;
-}
-
-/* ------------------------------------------------------------ consentimiento */
-
-.consentimiento {
-  border-left: 3px solid var(--ruta-audio);
-}
-
-.consentimiento__texto {
-  margin: 0 0 var(--espacio-4);
-  color: var(--texto-suave);
-  font-size: var(--texto-sm);
-}
-
-.casilla {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--espacio-3);
-  cursor: pointer;
-  font-size: var(--texto-sm);
-}
-
-.casilla input {
-  width: 1.15rem;
-  height: 1.15rem;
-  margin: 0.2rem 0 0;
-  flex: 0 0 auto;
-  accent-color: var(--ruta-audio);
-  cursor: pointer;
+.ayuda {
+  margin: var(--espacio-3) 0 0;
+  color: var(--texto-tenue);
+  font-size: var(--texto-xs);
 }
 
 /* ------------------------------------------------------------------- botones */
@@ -167,6 +90,7 @@ body {
   font-family: inherit;
   font-size: var(--texto-base);
   font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
   transition: background var(--transicion-rapida) var(--curva),
     border-color var(--transicion-rapida) var(--curva),
@@ -184,7 +108,7 @@ body {
 }
 
 .boton:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
@@ -198,6 +122,17 @@ body {
   background: var(--ruta-audio);
   color: #ffffff;
   filter: brightness(1.08);
+}
+
+.boton--discreto {
+  padding: var(--espacio-2) var(--espacio-4);
+  border-color: transparent;
+  color: var(--texto-suave);
+  font-size: var(--texto-sm);
+}
+
+.boton--discreto:hover {
+  border-color: var(--borde);
 }
 
 .boton--grabando {
@@ -224,46 +159,21 @@ body {
   outline-offset: 2px;
 }
 
-/* -------------------------------------------------------------- captura */
+/* -------------------------------------------------------------------- captura */
 
 .captura {
-  display: grid;
-  gap: var(--espacio-4);
-  grid-template-columns: 1fr;
-}
-
-@media (min-width: 720px) {
-  .captura {
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
-  }
-}
-
-.captura__bloque {
-  padding: var(--espacio-4);
-  border: 1px solid var(--borde);
-  border-radius: var(--radio-sm);
-  background: var(--superficie-hundida);
-}
-
-.captura__etiqueta {
-  display: block;
-  margin-bottom: var(--espacio-3);
-  color: var(--texto-suave);
-  font-size: var(--texto-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--espacio-3);
 }
 
 .zona-carga {
-  display: grid;
-  place-items: center;
-  gap: var(--espacio-2);
-  padding: var(--espacio-5) var(--espacio-4);
+  flex: 1 1 280px;
+  min-width: 0;
+  padding: var(--espacio-3) var(--espacio-4);
   border: 1.5px dashed var(--borde-fuerte);
   border-radius: var(--radio-sm);
-  background: var(--superficie);
   color: var(--texto-suave);
   font-size: var(--texto-sm);
   text-align: center;
@@ -283,24 +193,29 @@ body {
 }
 
 .cronometro {
-  margin-top: var(--espacio-3);
-  color: var(--texto-suave);
+  color: var(--estado-critico);
   font-size: var(--texto-sm);
   font-variant-numeric: tabular-nums;
 }
 
 .reproductor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--espacio-3);
   margin-top: var(--espacio-4);
 }
 
 .reproductor audio {
-  width: 100%;
-  margin-top: var(--espacio-2);
+  flex: 1 1 320px;
+  min-width: 0;
+  height: 36px;
 }
 
 .reproductor__nombre {
-  color: var(--texto-suave);
-  font-size: var(--texto-sm);
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: var(--texto-xs);
   overflow-wrap: anywhere;
 }
 
@@ -320,11 +235,8 @@ body {
   display: flex;
   align-items: flex-start;
   gap: var(--espacio-3);
-  padding: var(--espacio-3) var(--espacio-4);
-  border: 1px solid var(--borde);
-  border-left-width: 3px;
-  border-radius: var(--radio-sm);
-  background: var(--superficie-hundida);
+  padding: var(--espacio-2) var(--espacio-3);
+  border-left: 3px solid var(--borde);
   color: var(--texto);
   font-size: var(--texto-sm);
   animation: aparecer var(--transicion) var(--curva);
@@ -360,6 +272,7 @@ body {
   display: grid;
   gap: var(--espacio-5);
   grid-template-columns: 1fr;
+  margin-top: var(--espacio-5);
 }
 
 /* Dos columnas solo cuando cada una queda lo bastante ancha para que los ejes de
@@ -381,7 +294,6 @@ body {
   border: 1px solid var(--borde);
   border-radius: var(--radio);
   background: var(--superficie);
-  box-shadow: var(--sombra);
   animation: aparecer var(--transicion-lenta) var(--curva) both;
 }
 
@@ -449,31 +361,55 @@ body {
   white-space: nowrap;
 }
 
-/* ------------------------------------------------------------------- resumen */
+/* ------------------------------------------------------- resumen y detalles */
 
+/* Tira compacta de cifras, sin tarjetas ni recuadros: los números acompañan a
+   las figuras, no compiten con ellas. */
 .resumen {
-  display: grid;
-  gap: var(--espacio-4);
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-3) var(--espacio-6);
+  margin: var(--espacio-5) 0 0;
+  padding: var(--espacio-4) var(--espacio-2);
+  border-top: 1px solid var(--borde);
 }
 
 .resumen div {
-  padding: var(--espacio-3) var(--espacio-4);
-  border-radius: var(--radio-sm);
-  background: var(--superficie-hundida);
+  min-width: 0;
 }
 
 .resumen dt {
-  color: var(--texto-suave);
+  color: var(--texto-tenue);
   font-size: var(--texto-xs);
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
 .resumen dd {
-  margin: var(--espacio-1) 0 0;
-  font-size: var(--texto-lg);
+  margin: 2px 0 0;
+  font-size: var(--texto-base);
+  font-variant-numeric: tabular-nums;
+}
+
+.detalle {
+  margin-top: var(--espacio-3);
+  color: var(--texto-suave);
+  font-size: var(--texto-sm);
+}
+
+.detalle summary {
+  padding: var(--espacio-2) 0;
+  color: var(--texto-suave);
+  cursor: pointer;
+}
+
+.detalle summary:hover {
+  color: var(--ruta-audio);
+}
+
+.detalle .tabla {
+  margin-top: var(--espacio-2);
+  max-width: 460px;
 }
 
 .tabla {
@@ -490,17 +426,18 @@ body {
 }
 
 .tabla th {
-  color: var(--texto-suave);
+  color: var(--texto-tenue);
   font-weight: 600;
 }
 
-.tabla td:last-child {
+.tabla td:last-child,
+.tabla th:last-child {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
 .identificador {
-  margin-top: var(--espacio-4);
+  margin-top: var(--espacio-3);
   color: var(--texto-tenue);
   font-size: var(--texto-xs);
   overflow-wrap: anywhere;
@@ -509,16 +446,16 @@ body {
 /* ------------------------------------------------------------------ cargando */
 
 .cargando {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--espacio-3);
+  gap: var(--espacio-2);
   color: var(--texto-suave);
   font-size: var(--texto-sm);
 }
 
 .cargando__rueda {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
   border: 2px solid var(--borde-fuerte);
   border-top-color: var(--ruta-audio);
@@ -530,15 +467,6 @@ body {
   to {
     transform: rotate(360deg);
   }
-}
-
-.cargando--separado {
-  margin-top: var(--espacio-4);
-}
-
-.tarjeta__subtitulo {
-  margin-top: var(--espacio-5);
-  font-size: var(--texto-base);
 }
 
 .oculto {

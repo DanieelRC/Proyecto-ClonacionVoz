@@ -1,5 +1,5 @@
 /*
- * Interfaz de la etapa 1: consentimiento, captura, validación y presentación.
+ * Interfaz de la etapa 1: captura, validación y presentación.
  *
  * El navegador valida antes de enviar para dar respuesta inmediata, pero la
  * validación que manda es la del servidor (RF-03): estas reglas son una cortesía,
@@ -115,26 +115,16 @@
     mostrarMensajes(textos, "mensaje--aviso");
   };
 
-  // ---------------------------------------------------- consentimiento (RNF-12)
+  // ------------------------------------------------------------- micrófono
 
-  function prepararConsentimiento() {
-    const acepto = elemento("acepto");
-
-    const sincronizar = function () {
-      const permitido = acepto.checked;
-      elemento("tarjeta-captura").setAttribute("aria-disabled", permitido ? "false" : "true");
-      elemento("archivo").disabled = !permitido;
-      elemento("boton-grabar").disabled = !permitido || !Grabadora.esSoportado();
-      elemento("boton-analizar").disabled = !permitido || !estado.wav;
-
-      if (permitido && !Grabadora.esSoportado()) {
-        limpiarMensajes();
-        mostrarAvisos([Grabadora.razonDeNoSoporte() + " Puedes subir un archivo .wav."]);
-      }
-    };
-
-    acepto.addEventListener("change", sincronizar);
-    sincronizar();
+  function prepararMicrofono() {
+    if (Grabadora.esSoportado()) {
+      return;
+    }
+    // Sin micrófono disponible el botón se apaga y se dice por qué: es la única
+    // forma de que el usuario entienda que puede seguir subiendo un archivo.
+    elemento("boton-grabar").disabled = true;
+    mostrarAvisos([Grabadora.razonDeNoSoporte() + " Puedes subir un archivo .wav."]);
   }
 
   // ------------------------------------------------------- validación local
@@ -178,7 +168,7 @@
     elemento("nombre-archivo").textContent =
       nombre + " · " + duracion.toFixed(1) + " s · " + Math.round(wav.size / 1024) + " KB";
     elemento("reproductor").classList.remove("oculto");
-    elemento("boton-analizar").disabled = !elemento("acepto").checked;
+    elemento("boton-analizar").disabled = false;
   }
 
   // --------------------------------------------------------- carga de archivo
@@ -234,9 +224,7 @@
     ["dragenter", "dragover"].forEach(function (evento) {
       zona.addEventListener(evento, function (e) {
         e.preventDefault();
-        if (!entrada.disabled) {
-          zona.classList.add("zona-carga--activa");
-        }
+        zona.classList.add("zona-carga--activa");
       });
     });
 
@@ -248,9 +236,6 @@
 
     zona.addEventListener("drop", function (e) {
       e.preventDefault();
-      if (entrada.disabled) {
-        return;
-      }
       const archivos = e.dataTransfer && e.dataTransfer.files;
       if (archivos && archivos.length) {
         recibirArchivo(archivos[0]);
@@ -302,6 +287,7 @@
     boton.classList.add("boton--grabando");
     elemento("etiqueta-grabar").textContent = "Detener";
     elemento("cronometro").textContent = "00:00";
+    elemento("cronometro").classList.remove("oculto");
     iniciarCronometro();
   }
 
@@ -311,6 +297,7 @@
     }
     estado.grabando = false;
     detenerCronometro();
+    elemento("cronometro").classList.add("oculto");
 
     const boton = elemento("boton-grabar");
     boton.classList.remove("boton--grabando");
@@ -331,8 +318,8 @@
     } catch (e) {
       mostrarErrores(["No se pudo procesar la grabación. Inténtalo de nuevo."]);
     } finally {
-      boton.disabled = !elemento("acepto").checked;
-      elemento("etiqueta-grabar").textContent = "Empezar a grabar";
+      boton.disabled = false;
+      elemento("etiqueta-grabar").textContent = "Grabar";
     }
   }
 
@@ -484,7 +471,7 @@
   // ------------------------------------------------------------------ arranque
 
   prepararTema();
-  prepararConsentimiento();
+  prepararMicrofono();
   prepararCarga();
   prepararGrabacion();
   elemento("boton-analizar").addEventListener("click", analizar);

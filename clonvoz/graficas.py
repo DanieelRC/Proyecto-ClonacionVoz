@@ -33,6 +33,7 @@ Decisiones que vale la pena conocer antes de tocar este archivo:
 from __future__ import annotations
 
 import io
+import textwrap
 from typing import Iterable
 
 import matplotlib
@@ -180,9 +181,18 @@ def _vestir_eje(eje, tema: dict, con_rejilla: bool = True) -> None:
         eje.set_axisbelow(True)
 
 
-def _titular(eje, tema: dict, titulo: str) -> None:
+def _titular(eje, tema: dict, titulo: str, ancho: float = ANCHO_COMPLETO) -> None:
+    """
+    Pone el título, partiéndolo en varias líneas si no cabe a lo ancho.
+
+    matplotlib no acomoda los títulos largos: ni los encoge ni los parte, los
+    dibuja hasta salirse del lienzo y el PNG sale con el texto cortado. Como las
+    figuras de media columna miden dos tercios de las anchas, el corte aparecía
+    solo en ellas. El presupuesto de caracteres se estima del ancho en pulgadas.
+    """
+    presupuesto = max(24, int(ancho * 7.2))
     eje.set_title(
-        titulo,
+        "\n".join(textwrap.wrap(titulo, presupuesto)) or titulo,
         loc="left",
         color=tema["texto"],
         fontsize=TAMANOS["titulo"],
@@ -278,7 +288,7 @@ def grafica_espectrograma(analisis: Analisis, tema_nombre: str = "claro") -> byt
         va="bottom",
     )
 
-    _titular(eje, tema, f"Espectrograma STFT — [{alto}, {ancho}]")
+    _titular(eje, tema, f"Espectrograma STFT — [{alto}, {ancho}]", ancho=ANCHO_MEDIO)
     _etiquetar(eje, tema, x="tiempo (s)", y="frecuencia (Hz)")
     _barra_de_escala(figura, imagen, eje, tema, "dB relativos al pico")
     return _a_png(figura)
@@ -311,6 +321,7 @@ def grafica_mel(analisis: Analisis, tema_nombre: str = "claro") -> bytes:
         eje,
         tema,
         f"Mel-espectrograma — [{canales}, {frames}] · entrada del Perceiver (etapa 2)",
+        ancho=ANCHO_MEDIO,
     )
     _etiquetar(eje, tema, x="tiempo (s)", y=f"canal Mel (0 Hz – {config.MEL_FMAX // 1000} kHz)")
     _barra_de_escala(figura, imagen, eje, tema, "log de energía Mel")
