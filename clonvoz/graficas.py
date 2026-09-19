@@ -47,6 +47,7 @@ from matplotlib.figure import Figure
 from . import config
 from .analisis import Analisis
 
+
 def _familia_disponible(candidatas: tuple[str, ...]) -> str:
     """
     Primera tipografía de la lista que matplotlib tenga instalada.
@@ -138,25 +139,56 @@ def _envolvente(
     es lo que se dibuja como banda rellena.
     """
     n = amplitud.shape[0]
+
+    # Audio vacío: se devuelven arreglos vacíos en vez de fallar al dividir.
     if n == 0:
         vacio = np.zeros(0, dtype=np.float32)
         return vacio, vacio, vacio
+
+    # Si hay menos muestras que columnas no hay nada que resumir: se dibujan todas,
+    # y la "banda" se degenera en una línea porque el mínimo y el máximo coinciden.
     if n <= columnas:
         tiempo = np.arange(n, dtype=np.float32) / config.SR
         return tiempo, amplitud, amplitud
 
+    # Cuántas muestras entran en cada columna de la figura. Con 176 400 muestras y
+    # 1400 columnas son 126 muestras por columna.
     por_columna = n // columnas
+
+    # La división entera deja un resto que no llena una columna completa; se recorta
+    # para que el reshape de la línea siguiente cuadre exacto. Se pierden como mucho
+    # 125 muestras del final, unos 6 milisegundos: invisible en la gráfica.
     utiles = por_columna * columnas
+
+    # [n] -> [1400, 126]. Aquí está el truco: reshape no copia ni promedia nada,
+    # solo reinterpreta el mismo bloque de memoria como una tabla de 1400 filas.
     bloques = amplitud[:utiles].reshape(columnas, por_columna)
+
+    # axis=1 recorre cada fila: el valor más bajo y el más alto de cada tramo de 126
+    # muestras. Quedarse con ambos es lo que conserva la silueta; submuestrear
+    # —tomar una muestra de cada 126— se saltaría justo los picos.
     minimos = bloques.min(axis=1)
     maximos = bloques.max(axis=1)
+
+    # [1400]. El segundo en que empieza cada columna, para el eje horizontal.
     tiempo = (np.arange(columnas, dtype=np.float32) * por_columna) / config.SR
     return tiempo, minimos, maximos
 
 
 def _figura(tema: dict, alto: float, ancho: float = ANCHO_COMPLETO) -> Figure:
+    """Crea una figura vacía del tamaño y el color de fondo pedidos."""
+    # El tamaño va en pulgadas y se multiplica por DPI para dar píxeles: 6.6 x 110
+    # son 726 px de ancho. "constrained" deja que matplotlib reparta los márgenes
+    # solo, para que las etiquetas no se encimen ni se salgan.
     figura = Figure(figsize=(ancho, alto), dpi=DPI, layout="constrained")
+
+    # El fondo de la imagen se pinta del color de la tarjeta que la va a contener,
+    # para que el PNG se funda con la página en vez de recortarse contra ella.
     figura.set_facecolor(tema["superficie"])
+
+    # Se construye el lienzo y se descarta la referencia a propósito: al crearse
+    # queda enganchado a la figura, y sin él `savefig` no tendría con qué dibujar.
+    # Es la forma de trabajar sin `pyplot`, que no es seguro entre hilos.
     FigureCanvasAgg(figura)
     return figura
 
@@ -220,6 +252,9 @@ def _barra_de_escala(figura: Figure, imagen, eje, tema: dict, etiqueta: str) -> 
 
 
 def _a_png(figura: Figure) -> bytes:
+    """Convierte la figura en los bytes de un PNG, sin pasar por el disco."""
+    # BytesIO es un archivo que vive en memoria: savefig cree que escribe un
+    # archivo, pero el resultado se queda en la variable (RNF-13).
     buffer = io.BytesIO()
     figura.savefig(buffer, format="png", facecolor=figura.get_facecolor())
     return buffer.getvalue()
@@ -263,6 +298,20 @@ def grafica_espectrograma(analisis: Analisis, tema_nombre: str = "claro") -> byt
     _vestir_eje(eje, tema, con_rejilla=False)
 
     alto, ancho = analisis.espectrograma_db.shape
+
+    # imshow pinta la matriz [1025, T] como un mapa de calor: cada número se vuelve
+    # un color. Los argumentos hacen lo siguiente:
+    #   origin="lower"   pone la fila 0 abajo; por omisión iría arriba y el
+    #                    espectrograma saldría de cabeza, con los graves en el techo
+    #   aspect="auto"    permite que los píxeles se estiren para llenar el eje; sin
+    #                    esto 1025 filas y T columnas darían una imagen deformada
+    #   vmin/vmax        fijan el rango de color de -80 a 0 dB: todo lo que esté más
+    #                    de 80 dB por debajo del pico se pinta del mismo negro, que
+    #                    es el ruido de fondo que no interesa ver
+    #   extent           reetiqueta los ejes en unidades reales —segundos y hercios—
+    #                    en vez de números de fila y de columna
+    #   interpolation    "nearest" muestra el dato tal cual, sin suavizarlo entre
+    #                    píxeles vecinos: lo que se ve es lo que se calculó
     imagen = eje.imshow(
         analisis.espectrograma_db,
         origin="lower",
@@ -308,6 +357,11 @@ def grafica_mel(analisis: Analisis, tema_nombre: str = "claro") -> bytes:
     _vestir_eje(eje, tema, con_rejilla=False)
 
     canales, frames = analisis.mel.shape
+
+    # Mismos argumentos que el espectrograma para que los dos mapas se puedan
+    # comparar de frente, con dos diferencias: el eje vertical va de 0 a 80 —número
+    # de canal Mel, no hercios— y no se fija vmin/vmax, así que el color se reparte
+    # entre el mínimo y el máximo de este audio.
     imagen = eje.imshow(
         analisis.mel,
         origin="lower",
@@ -427,4 +481,8 @@ def como_data_uri(png: bytes) -> str:
     """Envuelve un PNG para incrustarlo directo en la página, sin guardarlo."""
     import base64
 
+    # base64 reescribe los bytes crudos del PNG usando solo caracteres que caben en
+    # texto, y el prefijo "data:" le dice al navegador que lo que sigue es la imagen
+    # misma y no una dirección de donde bajarla. Así la página muestra las figuras
+    # sin que el servidor tenga que guardarlas ni servirlas como archivos aparte.
     return "data:image/png;base64," + base64.b64encode(png).decode("ascii")

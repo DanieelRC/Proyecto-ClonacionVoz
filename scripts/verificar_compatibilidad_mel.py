@@ -54,6 +54,8 @@ def comparar_con_xtts(muestras: np.ndarray, nuestro_mel: np.ndarray) -> bool | N
 
     with torch.no_grad():
         # XTTS-v2 trabaja con un lote: [1, n] -> [1, 80, T].
+        # unsqueeze(0) agrega esa dimensión de lote al frente; sin ella la función
+        # interpretaría las muestras como si fueran ya un espectrograma.
         señal = torch.from_numpy(muestras).unsqueeze(0)
         # mel_norms de unos: la división por las estadísticas del checkpoint queda
         # neutralizada, para comparar el log-mel sin normalizar que es lo que
@@ -71,6 +73,8 @@ def comparar_con_xtts(muestras: np.ndarray, nuestro_mel: np.ndarray) -> bool | N
             f_max=config.MEL_FMAX,
             n_mels=config.N_MELS,
         )
+        # squeeze(0) quita la dimensión de lote para volver a [80, T] y poder
+        # comparar contra lo nuestro, que nunca la tuvo.
         suyo = suyo.squeeze(0).cpu().numpy()
 
     print(f"  forma nuestra          {list(nuestro_mel.shape)}")
@@ -80,6 +84,9 @@ def comparar_con_xtts(muestras: np.ndarray, nuestro_mel: np.ndarray) -> bool | N
         print("  RESULTADO: FALLA — las formas no coinciden.")
         return False
 
+    # La resta es elemento por elemento: el valor absoluto más grande de toda la
+    # matriz es la peor discrepancia que existe entre las dos implementaciones. Si
+    # ese máximo es cero, los dos tensores son idénticos número por número.
     diferencia = float(np.max(np.abs(suyo - nuestro_mel)))
     print(f"  diferencia absoluta máxima  {diferencia:.3e}  (tolerancia {TOLERANCIA:.0e})")
     if diferencia <= TOLERANCIA:
@@ -125,6 +132,9 @@ def comparar_con_librosa(muestras: np.ndarray, nuestro_mel: np.ndarray) -> None:
         )
         return np.log(np.clip(banco @ potencia, config.MEL_CLAMP_MIN, None))
 
+    # La misma cuenta dos veces, cambiando solo la escala Mel: htk=True es la que
+    # usa XTTS-v2 y htk=False la que librosa aplica por omisión. La diferencia entre
+    # ambas cifras es la medida del error que se evitó al elegir torchaudio.
     igualado = mel_librosa(htk=True)
     por_omision = mel_librosa(htk=False)
 
