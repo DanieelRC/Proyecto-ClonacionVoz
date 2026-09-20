@@ -41,10 +41,11 @@
 
   <header class="encabezado">
     <div>
-      <h1 class="encabezado__titulo">Preprocesamiento de audio</h1>
+      <h1 class="encabezado__titulo">Clonador de voz</h1>
       <p class="encabezado__subtitulo">
-        Cómo ve una computadora el sonido: forma de onda, espectrograma,
-        mel-espectrograma de {{ n_mels }} canales y contorno de entonación.
+        Primero, cómo ve una computadora el sonido: forma de onda, espectrograma,
+        mel-espectrograma de {{ n_mels }} canales y contorno de entonación. Después,
+        cómo XTTS-v2 condensa esa voz en 32 vectores.
       </p>
     </div>
     <button type="button" class="boton boton--discreto" id="conmutador-tema">
@@ -82,13 +83,13 @@
       segundos de habla continua es lo ideal.
     </p>
 
-    <!-- RF-04: confirmar el audio antes de analizarlo -->
     <p class="ayuda">
       <label><input type="checkbox" id="consentimiento">
         Tengo autorización de las personas de las referencias para grabar y procesar
         sus voces en este proyecto académico de clonación de voz.
       </label>
     </p>
+    <!-- RF-04: confirmar el audio antes de analizarlo -->
     <div class="reproductor oculto" id="reproductor">
       <p class="reproductor__nombre" id="nombre-archivo"></p>
       <audio id="audio-referencia" controls></audio>

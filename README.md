@@ -1,7 +1,8 @@
 ## Requisitos del Sistema
 
 - **Sistema Operativo:** Windows 10/11 (probado en Windows 64-bit).
-- **Versión de Python:** **Python 3.11.x** (probado con Python 3.11.9).
+- **Versión de Python:** **Python 3.10 o 3.11**. La etapa 1 se probó con
+  Python 3.11.9; el entorno de la etapa 2, con Python 3.10.9.
 - **Audio de referencia:** Archivo en formato `.wav` (por ejemplo, `muestra_hablante.wav`).
 
 ## Instalación y Configuración
@@ -129,6 +130,13 @@ entorno. Estos comandos instalan la variante CPU de PyTorch:
 
 El entorno separado fue verificado en esta computadora con Python 3.10.9 y
 PyTorch 2.8.0 CPU. La instalación anterior de la etapa 1 no se reemplaza.
+
+PyTorch se queda en 2.8.0 por una razón concreta: desde la versión 2.9,
+coqui-tts exige además el paquete `torchcodec` y aborta la importación si no
+está (`TTS/__init__.py`). Quedarse en 2.8.0 evita esa dependencia. Como este es
+el entorno con el que se ejecuta la aplicación completa, es el que manda;
+`requirements.txt` queda como registro del entorno con el que se construyó la
+etapa 1.
 
 ```powershell
 python -m venv .venv-etapa2

@@ -1,5 +1,12 @@
 # Entorno independiente para etapas 1 y 2. No sustituye requirements.txt.
 # Instalar primero torch/torchaudio con el índice CPU indicado en el README.
+#
+# Por qué torch 2.8.0 y no el 2.14.0 de requirements.txt: coqui-tts exige el
+# paquete torchcodec a partir de PyTorch 2.9 y aborta la importación si falta
+# (TTS/__init__.py: `if is_torch_greater_or_equal("2.9")`). Quedarse en 2.8.0
+# evita esa dependencia extra. La otra combinación válida es torch 2.14 con
+# torchcodec instalado, que es la que fija requirements.txt.
+# Este es el entorno con el que se ejecuta el proyecto hoy.
 torch==2.8.0
 torchaudio==2.8.0
 coqui-tts==0.27.5

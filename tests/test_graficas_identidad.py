@@ -32,7 +32,11 @@ class PruebasVistas(unittest.TestCase):
                     else:
                         norma.assert_not_called()
                 self.assertEqual(set(imagenes), {'atencion', 'atencion_inicial', 'similitud', 'centrada', 'identidad'})
-                self.assertTrue(all(i.startswith('data:image/png;base64,') for v in imagenes.values() for i in v.values()))
+                # renderizar_identidades entrega los bytes del PNG; envolverlos
+                # como data URI es trabajo de la capa web. Comprobar la firma del
+                # formato es más estricto que comprobar un prefijo de texto.
+                self.assertTrue(all(i.startswith(b'\x89PNG\r\n\x1a\n')
+                                    for v in imagenes.values() for i in v.values()))
                 np.testing.assert_array_equal(vectores, copia)
 
 

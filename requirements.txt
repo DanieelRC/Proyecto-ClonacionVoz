@@ -1,3 +1,6 @@
+# Entorno de la etapa 1. Desde la etapa 2 el proyecto se ejecuta con
+# requirements-etapa2.txt, que fija torch 2.8.0 en vez de 2.14.0 por el motivo
+# explicado en ese archivo. No instales ambos en el mismo entorno.
 coqui-tts==0.27.5
 coqpit-config==0.2.5
 transformers==4.57.6

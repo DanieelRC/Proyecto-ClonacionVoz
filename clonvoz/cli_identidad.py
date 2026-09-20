@@ -7,7 +7,6 @@ escribe resultados cuando se pide --salida: exportar es una decisión explícita
 """
 
 import argparse
-import base64
 import json
 from pathlib import Path
 
@@ -63,9 +62,8 @@ def main(argv=None):
         (args.salida / "identidad.json").write_text(json.dumps(resumen, ensure_ascii=False, indent=2), encoding="utf-8")
         for nombre, temas in renderizar_identidades([resultado])[0].items():
             for tema, imagen in temas.items():
-                # El render devuelve "data:image/png;base64,..." para la web.
-                # Se quita la cabecera y se decodifica base64 para escribir un PNG.
-                (args.salida / f"{nombre}_{tema}.png").write_bytes(base64.b64decode(imagen.split(",", 1)[1]))
+                # El render entrega los bytes del PNG, así que se escriben tal cual.
+                (args.salida / f"{nombre}_{tema}.png").write_bytes(imagen)
     return 0
 
 

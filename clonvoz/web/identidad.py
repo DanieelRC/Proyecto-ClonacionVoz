@@ -12,6 +12,7 @@ from flask import Blueprint, current_app, jsonify, request, session
 
 from ..identidad import CodificadorIdentidad, ModeloNoDisponible, identidad_desde_mel, carpeta_modelo
 from ..graficas_identidad import renderizar_identidades
+from ..graficas import como_data_uri
 
 
 def crear_rutas_identidad(memoria):
@@ -64,7 +65,10 @@ def crear_rutas_identidad(memoria):
             for entrada, resultado, graficas in zip(entradas, resultados, figuras):
                 resumen = resultado.como_dict()
                 resumen["archivo"] = entrada.nombre
-                resumen["graficas"] = graficas
+                # renderizar_identidades entrega bytes; envolverlos para
+                # incrustarlos en la página es trabajo de esta capa, no del render.
+                resumen["graficas"] = {vista: {tema: como_data_uri(png) for tema, png in temas.items()}
+                                       for vista, temas in graficas.items()}
                 salida.append(resumen)
             return jsonify(resultados=salida, carga_modelo_ms=round(carga_ms, 2))
         except ModeloNoDisponible as exc:
