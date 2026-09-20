@@ -40,6 +40,7 @@
     grabando: false,
     temporizador: null,
     inicioGrabacion: 0,
+    revision: 0,
   };
 
   // ------------------------------------------------------------------ tema
@@ -155,6 +156,9 @@
   }
 
   function fijarReferencia(wav, nombre, duracion) {
+    estado.revision += 1;
+    elemento("cargando").classList.add("oculto");
+    elemento("resultados").classList.add("oculto");
     estado.wav = wav;
     estado.nombre = nombre;
     estado.duracion = duracion;
@@ -169,6 +173,7 @@
       nombre + " · " + duracion.toFixed(1) + " s · " + Math.round(wav.size / 1024) + " KB";
     elemento("reproductor").classList.remove("oculto");
     elemento("boton-analizar").disabled = false;
+    document.dispatchEvent(new CustomEvent("referencia-cambiada", { detail: { wav: wav, nombre: nombre } }));
   }
 
   // --------------------------------------------------------- carga de archivo
@@ -179,6 +184,15 @@
     if (!archivo) {
       return;
     }
+    // Desde que se elige otra entrada, ninguna respuesta del audio anterior
+    // puede habilitar etapa 2. Esto también cubre archivos nuevos inválidos.
+    estado.revision += 1;
+    estado.wav = null;
+    elemento("boton-analizar").disabled = true;
+    elemento("resultados").classList.add("oculto");
+    document.dispatchEvent(new CustomEvent("referencia-cambiada"));
+    const revisionCarga = estado.revision;
+    elemento("cargando").classList.add("oculto");
     if (!/\.wav$/i.test(archivo.name)) {
       mostrarErrores([
         "Solo se aceptan archivos .wav. Convierte el audio antes de subirlo " +
@@ -204,6 +218,7 @@
       return;
     }
 
+    if (revisionCarga !== estado.revision) return;
     const revision = validarLocalmente(buffer.duration);
     if (revision.errores.length) {
       mostrarErrores(revision.errores);
@@ -272,8 +287,18 @@
   }
 
   async function iniciarGrabacion() {
+    if (!elemento("consentimiento").checked) {
+      mostrarErrores(["Confirma la autorización para grabar y procesar esta voz."]);
+      return;
+    }
     limpiarMensajes();
+    estado.revision += 1;
+    estado.wav = null;
+    elemento("boton-analizar").disabled = true;
+    elemento("resultados").classList.add("oculto");
+    document.dispatchEvent(new CustomEvent("referencia-cambiada"));
     try {
+      elemento("cargando").classList.add("oculto");
       await Grabadora.iniciar();
     } catch (e) {
       mostrarErrores([
@@ -431,22 +456,37 @@
   }
 
   async function analizar() {
+    if (!elemento("consentimiento").checked) {
+      mostrarErrores(["Confirma la autorización para procesar esta voz."]);
+      return;
+    }
     if (!estado.wav) {
       return;
     }
     limpiarMensajes();
 
     const boton = elemento("boton-analizar");
+    const revisionAnalisis = ++estado.revision;
+    document.dispatchEvent(new CustomEvent("etapa1-iniciada"));
     boton.disabled = true;
     elemento("cargando").classList.remove("oculto");
 
     const cuerpo = new FormData();
     cuerpo.append("audio", estado.wav, estado.nombre || "referencia.wav");
     cuerpo.append("metodo_f0", "pyin");
+    cuerpo.append("consentimiento", "si");
 
     try {
       const respuesta = await fetch("/api/analizar", { method: "POST", body: cuerpo });
       const datos = await respuesta.json();
+      // Ignorar respuestas tardías: pertenecen a una selección reemplazada.
+      if (revisionAnalisis !== estado.revision) {
+        if (datos.id_corrida) fetch("/api/descartar", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id_corrida: datos.id_corrida }),
+        }).catch(function () {});
+        return;
+      }
 
       if (!respuesta.ok) {
         mostrarErrores(datos.errores || ["No se pudo analizar el audio."]);
@@ -456,15 +496,20 @@
       mostrarAvisos(datos.advertencias);
       pintarFiguras(datos.graficas, datos.formas);
       pintarResumen(datos);
+      // Este evento transporta solo el identificador. El mel permanece en Python.
+      document.dispatchEvent(new CustomEvent("etapa1-completada", { detail: datos }));
       elemento("resultados").classList.remove("oculto");
       elemento("resultados").scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (e) {
+      if (revisionAnalisis !== estado.revision) return;
       mostrarErrores([
         "No se pudo contactar al servidor. Revisa que siga corriendo en la terminal.",
       ]);
     } finally {
-      elemento("cargando").classList.add("oculto");
-      boton.disabled = false;
+      if (revisionAnalisis === estado.revision) {
+        elemento("cargando").classList.add("oculto");
+        boton.disabled = !estado.wav;
+      }
     }
   }
 
@@ -474,5 +519,14 @@
   prepararMicrofono();
   prepararCarga();
   prepararGrabacion();
+  elemento("consentimiento").addEventListener("change", function () {
+    if (!elemento("consentimiento").checked) {
+      // Una respuesta en curso tampoco debe restaurar un análisis tras retirar
+      // el consentimiento; se descartará al llegar mediante revisionAnalisis.
+      estado.revision += 1;
+      elemento("boton-analizar").disabled = !estado.wav;
+      elemento("cargando").classList.add("oculto");
+    }
+  });
   elemento("boton-analizar").addEventListener("click", analizar);
 })();

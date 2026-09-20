@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Preprocesamiento de audio</title>
+<title>Clonador de voz — Etapas 1 y 2</title>
 <!-- Icono incrustado: evita el 404 de /favicon.ico y no depende de ningún archivo. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg fill='%232a78d6'%3E%3Crect x='1' y='6' width='2' height='4' rx='1'/%3E%3Crect x='4.5' y='3' width='2' height='10' rx='1'/%3E%3Crect x='8' y='1' width='2' height='14' rx='1'/%3E%3Crect x='11.5' y='4.5' width='2' height='7' rx='1'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
@@ -83,6 +83,12 @@
     </p>
 
     <!-- RF-04: confirmar el audio antes de analizarlo -->
+    <p class="ayuda">
+      <label><input type="checkbox" id="consentimiento">
+        Tengo autorización de las personas de las referencias para grabar y procesar
+        sus voces en este proyecto académico de clonación de voz.
+      </label>
+    </p>
     <div class="reproductor oculto" id="reproductor">
       <p class="reproductor__nombre" id="nombre-archivo"></p>
       <audio id="audio-referencia" controls></audio>
@@ -160,14 +166,40 @@
     </details>
   </div>
 
+  <section class="panel etapa-dos" aria-labelledby="titulo-identidad">
+    <h2 id="titulo-identidad">Etapa 2 · Identidad y estilo de voz</h2>
+    <p>Primero pulsa Analizar en la etapa 1. Después el Perceiver recibirá su mel
+      completo, sin volver a enviar ni procesar el WAV, y lo resumirá en
+      32 vectores de 1024 dimensiones. Esta etapa utiliza pesos reales de XTTS-v2.</p>
+    <p class="ayuda">Estos vectores condicionan la voz y su estilo. No son una prueba
+      de identidad de la persona ni una medida de similitud entre hablantes.</p>
+    <p class="ayuda">El resultado de etapa 1 se conserva diez minutos en memoria.
+      Para comparar, conserva un análisis y procesa otra referencia desde arriba.</p>
+    <div class="captura">
+      <button type="button" class="boton" id="conservar-comparacion" disabled>Conservar análisis para comparar</button>
+      <button type="button" class="boton boton--discreto" id="quitar-comparacion">Quitar comparación</button>
+      <button type="button" class="boton boton--primario" id="boton-identidad" disabled>Analizar etapa 2</button>
+    </div>
+    <p id="referencia-comparacion" class="ayuda">Sin referencia conservada.</p>
+    <p id="estado-identidad" role="status" aria-live="polite"></p>
+    <div id="resultados-identidad" class="comparacion-identidad"></div>
+    <p class="ayuda">Cada mapa de atención corresponde a una capa y al promedio de
+      ocho cabezas sobre el mel completo de etapa 1. El color usa una escala de potencia
+      para revelar pesos pequeños; la barra conserva sus valores reales. Los pesos no se
+      renormalizan. La similitud entre consultas no mide identidad ni calidad de una voz.</p>
+  </section>
+
   <footer class="pie">
     Proyecto académico. Los pesos de XTTS-v2 se usan bajo la licencia no comercial
-    CPML; esta etapa todavía no carga el modelo.
+    CPML. Solo la etapa 2 carga los módulos de condicionamiento. Los audios y
+    muestras WAV no se guardan en disco. El mel se descarta al reemplazarlo o
+    después de diez minutos; los pesos permanecen cargados mientras el servidor está abierto.
   </footer>
 
 </div>
 
 <script src="{{ url_for('static', filename='js/grabadora.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/identidad.js') }}"></script>
 </body>
 </html>

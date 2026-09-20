@@ -1,18 +1,21 @@
 """
 Servidor web de la etapa 1.
 
-Dos rutas y nada más: la página y el análisis. El servidor no procesa señales por
+Sirve la página y conecta las etapas. El servidor no procesa señales por
 su cuenta —eso vive en `clonvoz.analisis`, que también usa la línea de comandos—,
 así que aquí solo hay traducción entre HTTP y el módulo de procesamiento.
 
 **El audio no toca el disco en ningún momento** (RNF-13): llega en memoria, se
 analiza en memoria y lo que se devuelve son imágenes ya renderizadas y números.
-Al terminar la petición no queda rastro del audio en el servidor.
+Al terminar se conserva solo el mel y sus metadatos durante un máximo de diez
+minutos, para que etapa 2 use exactamente el resultado de etapa 1.
 """
 
 from __future__ import annotations
 
-from flask import Flask, jsonify, render_template, request
+import secrets
+
+from flask import Flask, jsonify, render_template, request, session
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from .. import config, graficas
@@ -30,6 +33,14 @@ def crear_app() -> Flask:
     en cada prueba, sin que el estado de una se filtre a la siguiente.
     """
     app = Flask(__name__)
+    # La cookie firmada identifica la sesión, pero no contiene audio ni tensores.
+    app.secret_key = secrets.token_bytes(32)
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    from .memoria import MemoriaMel
+    memoria = MemoriaMel()
+    app.extensions["memoria_mel"] = memoria
+    from .identidad import crear_rutas_identidad
+    app.register_blueprint(crear_rutas_identidad(memoria))
 
     # Flask corta por su cuenta cualquier petición más pesada que esto y levanta
     # RequestEntityTooLarge, que se atiende más abajo. Protege de que una carga
@@ -42,6 +53,7 @@ def crear_app() -> Flask:
 
     @app.get("/")
     def pagina():
+        session.setdefault("propietario", secrets.token_urlsafe(32))
         # Los límites se pasan a la plantilla para que la validación del
         # navegador y la del servidor salgan del mismo config.py y no se
         # desincronicen.
@@ -67,6 +79,9 @@ def crear_app() -> Flask:
           3. Analizar, traduciendo cada fallo a un 400 con su explicación.
           4. Dibujar las ocho imágenes y empaquetarlas con el resumen.
         """
+        if request.form.get("consentimiento") != "si":
+            return _error("Confirma la autorización para procesar esta voz."), 400
+
         # 1. request.files trae los archivos del formulario. Se comprueba también el
         #    nombre porque un campo vacío llega igualmente como archivo.
         archivo = request.files.get("audio")
@@ -107,6 +122,11 @@ def crear_app() -> Flask:
             nombre: {tema: graficas.como_data_uri(png) for tema, png in por_tema.items()}
             for nombre, por_tema in imagenes.items()
         }
+        # Paso nuevo: guardar exactamente el mel ya calculado. La etapa 2 recibe
+        # su id_corrida; las cuatro gráficas y cálculos de etapa 1 no cambian.
+        propietario = session.setdefault("propietario", secrets.token_urlsafe(32))
+        memoria.guardar(propietario, respuesta["archivo"], analisis)
+        respuesta["caducidad_s"] = memoria.caducidad_s
         return jsonify(respuesta)
 
     @app.errorhandler(RequestEntityTooLarge)

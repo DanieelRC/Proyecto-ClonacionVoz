@@ -493,6 +493,17 @@ body {
   font-size: var(--texto-xs);
 }
 
+/* Etapa 2 reutiliza los mismos colores, figuras y controles. */
+.etapa-dos { margin-top: var(--espacio-6); }
+.comparacion-identidad { display: grid; gap: var(--espacio-4); }
+.comparacion-identidad article { min-width: 0; }
+.comparacion-identidad .figura { margin-bottom: var(--espacio-3); }
+.etapa-dos input[type="file"] { display: block; max-width: 100%; margin-top: 8px; }
+.etapa-dos audio { margin-top: var(--espacio-3); max-width: 100%; }
+@media (min-width: 1280px) {
+  .comparacion-identidad--doble { grid-template-columns: 1fr 1fr; }
+}
+
 /* Quien pidió menos movimiento no debería recibir ninguno. */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -503,3 +514,16 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Explicación de etapa 2: tabla legible también al comparar referencias. */
+.explicacion-atencion { line-height: 1.6; margin-bottom: var(--espacio-4); }
+.explicacion-atencion p { margin: 12px 0; }
+.explicacion-atencion h4 { margin: 20px 0 8px; }
+.explicacion-atencion table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+.explicacion-atencion caption { text-align: left; font-weight: 600; margin-bottom: 8px; }
+.explicacion-atencion th, .explicacion-atencion td { text-align: left; padding: 8px; border-bottom: 1px solid currentColor; }
+
+/* Solo los mapas de atención mantienen su ancho original; la región desplaza. */
+.figura__lienzo.mapa-atencion-desplazable { overflow-x: auto; max-width: 100%; }
+.mapa-atencion-desplazable .figura__imagen { width: auto; max-width: none; height: auto; }
+.mapa-atencion-desplazable:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }

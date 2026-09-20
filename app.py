@@ -20,7 +20,7 @@ PUERTO = 5000
 
 def main() -> None:
     app = crear_app()
-    print("\n  Etapa 1 — preprocesamiento de audio y características visuales")
+    print("\n  Clonador de voz — etapa 1 (audio) y etapa 2 (Perceiver)")
     print(f"  Abre http://{HOST}:{PUERTO} en Chrome o Edge")
     print("  Ctrl+C para detener\n")
     # debug=False evita mostrar el traceback en el navegador ante un fallo.
