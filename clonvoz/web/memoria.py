@@ -1,9 +1,4 @@
-"""Puente temporal entre etapas: guarda el mel, nunca el WAV ni sus muestras.
-
-Cada entrada pertenece a una sesión del navegador. Caduca a los diez minutos
-o al descartarla. El límite de ocho entradas evita crecimiento sin control.
-Los temporizadores borran los datos aunque no lleguen nuevas solicitudes.
-"""
+"""Almacenamiento temporal en memoria de resultados de mel para la etapa 2."""
 
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -23,6 +18,8 @@ class MelGuardado:
 
 
 class MemoriaMel:
+    """Gestiona en memoria los mel calculados por sesión con caducidad y límite de capacidad."""
+
     def __init__(self, caducidad_s=600, capacidad=8):
         self.caducidad_s = caducidad_s
         self.capacidad = capacidad
@@ -30,12 +27,7 @@ class MemoriaMel:
         self.cerrojo = threading.Lock()
 
     def guardar(self, propietario, nombre, analisis):
-        """Conserva la matriz calculada por etapa 1, sin recalcularla.
-
-        1. Separar el mel y los metadatos del resto del análisis.
-        2. Desalojar la entrada más antigua si ya alcanzamos el límite.
-        3. Programar la eliminación automática; el temporizador no impide salir.
-        """
+        """Guarda el resultado del mel y programa su caducidad automática."""
         entrada = MelGuardado(propietario, analisis.id_corrida, nombre, analisis.mel,
                               analisis.audio.duracion_s, list(analisis.validacion.advertencias))
         temporizador = threading.Timer(self.caducidad_s, self.descartar,
@@ -49,7 +41,7 @@ class MemoriaMel:
             temporizador.start()
 
     def obtener(self, propietario, identificador):
-        """Entrega únicamente entradas de esta sesión; no renueva la caducidad."""
+        """Recupera la entrada correspondiente al propietario e identificador."""
         with self.cerrojo:
             registro = self.entradas.get(identificador)
             if registro is None or registro[0].propietario != propietario:
@@ -57,7 +49,7 @@ class MemoriaMel:
             return registro[0]
 
     def descartar(self, propietario, identificador):
-        """Libera un resultado reemplazado, vencido o descartado explícitamente."""
+        """Elimina una entrada y cancela su temporizador."""
         with self.cerrojo:
             registro = self.entradas.get(identificador)
             if registro is not None and registro[0].propietario == propietario:

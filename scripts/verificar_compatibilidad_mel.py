@@ -1,25 +1,4 @@
-"""
-Comprueba que el mel de la etapa 1 sea el mel que espera XTTS-v2.
-
-    python scripts/verificar_compatibilidad_mel.py audios/muestra_hablante.wav
-
-Por qué existe este script: en la etapa 2 el mel-espectrograma [80, T] que
-calcula la etapa 1 se le entrega tal cual al Perceiver Resampler. Si algún
-parámetro no coincide, el error no se manifiesta aquí sino allá, disfrazado de
-"el modelo no funciona". Este script convierte esa suposición en un número medido.
-
-Compara contra `wav_to_mel_cloning` de coqui-tts, que es la función que XTTS-v2
-llama de verdad para alimentar al Perceiver, con los argumentos exactos que le
-pasa `XTTS.get_gpt_cond_latents` en la rama del Perceiver.
-
-Ojo si alguien decide "corregir" este script: la clase `TorchMelSpectrogram`
-parece la candidata obvia y NO es la correcta (usa n_fft=1024 y sirve a Tortoise),
-y los valores por omisión de la firma de `wav_to_mel_cloning` tampoco son los de
-XTTS-v2 (son los del camino sin Perceiver, de XTTS-v1).
-
-Devuelve 0 si todo coincide y 1 si algo se sale de la tolerancia, para poder
-usarlo como verificación automática.
-"""
+"""Verificación de compatibilidad entre el mel calculado y wav_to_mel_cloning de XTTS-v2."""
 
 from __future__ import annotations
 
@@ -38,12 +17,7 @@ TOLERANCIA = 1e-4
 
 
 def comparar_con_xtts(muestras: np.ndarray, nuestro_mel: np.ndarray) -> bool | None:
-    """
-    Compara contra la función real de XTTS-v2.
-
-    Devuelve True/False si la comparación se pudo hacer, o None si coqui-tts no
-    está instalado (en ese caso no se finge que pasó: se reporta como omitida).
-    """
+    """Compara el mel calculado con la salida de wav_to_mel_cloning de coqui-tts."""
     try:
         import torch
         from TTS.tts.models.xtts import wav_to_mel_cloning
@@ -53,13 +27,7 @@ def comparar_con_xtts(muestras: np.ndarray, nuestro_mel: np.ndarray) -> bool | N
         return None
 
     with torch.no_grad():
-        # XTTS-v2 trabaja con un lote: [1, n] -> [1, 80, T].
-        # unsqueeze(0) agrega esa dimensión de lote al frente; sin ella la función
-        # interpretaría las muestras como si fueran ya un espectrograma.
         señal = torch.from_numpy(muestras).unsqueeze(0)
-        # mel_norms de unos: la división por las estadísticas del checkpoint queda
-        # neutralizada, para comparar el log-mel sin normalizar que es lo que
-        # produce la etapa 1 mientras el checkpoint no esté descargado.
         suyo = wav_to_mel_cloning(
             señal,
             mel_norms=torch.ones(config.N_MELS),
@@ -73,8 +41,6 @@ def comparar_con_xtts(muestras: np.ndarray, nuestro_mel: np.ndarray) -> bool | N
             f_max=config.MEL_FMAX,
             n_mels=config.N_MELS,
         )
-        # squeeze(0) quita la dimensión de lote para volver a [80, T] y poder
-        # comparar contra lo nuestro, que nunca la tuvo.
         suyo = suyo.squeeze(0).cpu().numpy()
 
     print(f"  forma nuestra          {list(nuestro_mel.shape)}")
@@ -84,9 +50,6 @@ def comparar_con_xtts(muestras: np.ndarray, nuestro_mel: np.ndarray) -> bool | N
         print("  RESULTADO: FALLA — las formas no coinciden.")
         return False
 
-    # La resta es elemento por elemento: el valor absoluto más grande de toda la
-    # matriz es la peor discrepancia que existe entre las dos implementaciones. Si
-    # ese máximo es cero, los dos tensores son idénticos número por número.
     diferencia = float(np.max(np.abs(suyo - nuestro_mel)))
     print(f"  diferencia absoluta máxima  {diferencia:.3e}  (tolerancia {TOLERANCIA:.0e})")
     if diferencia <= TOLERANCIA:
@@ -98,14 +61,7 @@ def comparar_con_xtts(muestras: np.ndarray, nuestro_mel: np.ndarray) -> bool | N
 
 
 def comparar_con_librosa(muestras: np.ndarray, nuestro_mel: np.ndarray) -> None:
-    """
-    Compara contra librosa, igualando escala y normalización a propósito.
-
-    No es una prueba que deba pasar, sino la evidencia de por qué la
-    implementación usa torchaudio: se reporta también la diferencia que aparece
-    al dejar la escala Mel de librosa en su valor por omisión (slaney), que es el
-    error fácil de cometer.
-    """
+    """Compara contra librosa evaluando diferencias de escala mel (htk vs slaney)."""
     import librosa
 
     def mel_librosa(htk: bool) -> np.ndarray:
@@ -132,22 +88,18 @@ def comparar_con_librosa(muestras: np.ndarray, nuestro_mel: np.ndarray) -> None:
         )
         return np.log(np.clip(banco @ potencia, config.MEL_CLAMP_MIN, None))
 
-    # La misma cuenta dos veces, cambiando solo la escala Mel: htk=True es la que
-    # usa XTTS-v2 y htk=False la que librosa aplica por omisión. La diferencia entre
-    # ambas cifras es la medida del error que se evitó al elegir torchaudio.
     igualado = mel_librosa(htk=True)
     por_omision = mel_librosa(htk=False)
 
     print(f"  librosa con htk=True (igualado)   dif. máx. {np.max(np.abs(igualado - nuestro_mel)):.3e}")
     print(f"  librosa con htk=False (omisión)   dif. máx. {np.max(np.abs(por_omision - nuestro_mel)):.3e}")
-    print("  La segunda cifra es el tamaño del error que se evita usando torchaudio.")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Comprueba que el mel de la etapa 1 sea el que espera XTTS-v2."
     )
-    parser.add_argument("audio", type=Path, help="archivo .wav de referencia")
+    parser.add_argument("audio", type=Path, help="Archivo .wav de referencia")
     args = parser.parse_args(argv)
 
     if not args.audio.is_file():

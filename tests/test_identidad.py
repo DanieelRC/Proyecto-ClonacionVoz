@@ -18,11 +18,7 @@ from clonvoz.web.servidor import crear_app
 
 
 def wav_prueba(segundos=3):
-    """Crea un WAV artificial en memoria, con duración controlada y señal audible.
-
-    El seno de 170 Hz permite probar formato/duración sin usar grabaciones de
-    personas. BytesIO evita escribir archivos para cada prueba.
-    """
+    """Genera un audio WAV sintetizado en memoria con duración controlada."""
     tiempo = np.arange(int(22050 * segundos)) / 22050
     muestras = (0.2 * np.sin(2 * np.pi * 170 * tiempo)).astype(np.float32)
     archivo = io.BytesIO()

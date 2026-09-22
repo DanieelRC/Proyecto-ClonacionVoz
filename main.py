@@ -1,8 +1,4 @@
-"""
-Primer avance de código (versión mínima)
-Clona una voz a partir de un audio de referencia y genera un audio nuevo a partir de texto con ella,
-usando un modelo preentrenado de código abierto (XTTS-v2, zero-shot).
-"""
+"""Script de síntesis mínima con XTTS-v2 (TTS zero-shot a partir de audio de referencia)."""
 
 from TTS.api import TTS
 
