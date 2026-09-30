@@ -278,3 +278,76 @@ intactos. No se calcula un porcentaje de parecido entre hablantes.
 scripts/verificar_compatibilidad_mel.py sigue comprobando el log-mel contra
 wav_to_mel_cloning. scripts/verificar_etapa2.py comprueba además la normalización,
 la igualdad con la salida oficial y la captura de ambas capas sin dejar hooks.
+
+## Etapa 3 — GPT-2 autoregresivo: tokens de audio
+
+La sección **Etapa 3** de la misma página toma los 32 vectores de la etapa 2 y
+un texto en español (hasta 239 caracteres) y muestra en vivo cómo el GPT-2 de
+XTTS-v2 genera tokens de audio de uno en uno: las fichas BPE del texto, cada
+token con su probabilidad, el progreso sobre el tope de 602 y el mapa de
+atención de las capas 1, 15 y 30. Todavía no hay voz final: el resultado es la
+secuencia. Requiere haber ejecutado la etapa 2 para la referencia actual; la
+etapa 3 usa esos vectores y no los recalcula.
+
+No se reimplementa el modelo: se llama a `GPT.generate` oficial con un
+streamer, un criterio de parada (para **Detener**) y un procesador de logits
+pasivo. La atención se lee con ganchos en modo `eager`, porque SDPA no devuelve
+los pesos; los tokens son los mismos. La transmisión es por Server-Sent Events.
+
+**Guardar corrida** descarga los eventos en JSON; **Reproducir corrida** los
+vuelve a animar sin servidor ni modelo. Nada se guarda en el servidor.
+
+### Escuchar por fases
+
+Audio crudo de cada transformación, calculado solo al pedirlo: la voz original,
+la voz reconstruida desde su mel (Griffin-Lim), la voz convertida en códigos del
+DVAE y de vuelta, y los tokens del GPT-2 decodificados por el DVAE. Suena
+metálico y apagado a propósito: es la representación intermedia, no la voz
+final. La etapa 2 no tiene fase audible. Las fases 3 y 4 necesitan `dvae.pth`.
+
+XTTS-v2 no usa el DVAE para sintetizar: entrega los estados ocultos del GPT al
+HiFi-GAN. Aquí el DVAE sirve para escuchar qué significan los tokens; el plan de
+la etapa 4 debe partir del camino real.
+
+### Archivos y ejecución
+
+El script de descarga ahora baja también `vocab.json` y `dvae.pth`; los que ya
+existan se conservan:
+
+```powershell
+.\.venv-etapa2\Scripts\python.exe scripts/descargar_modelo_etapa2.py --uso-academico
+.\.venv-etapa2\Scripts\python.exe app.py
+.\.venv-etapa2\Scripts\python.exe -m clonvoz.cli_generacion audios/muestra_hablante.wav --texto "Hola, ¿cómo estás?" --consentimiento
+.\.venv-etapa2\Scripts\python.exe -m clonvoz.cli_generacion audios/muestra_hablante.wav --texto "Hola" --consentimiento --salida salidas/etapa3
+```
+
+La CLI encadena las etapas 1 a 3. Con `--salida` guarda `tokens.npy`,
+`corrida.json` (reproducible en la página) y los WAV de las fases 2 a 4.
+`--determinista` elige siempre el token más probable; `--semilla` fija el muestreo.
+
+En CPU cada token tarda decenas de milisegundos y el modelo tarda unos segundos
+en cargarse la primera vez. El modo `eager` es algo más lento que SDPA.
+
+| Archivo | Responsabilidad |
+|---|---|
+| `clonvoz/generacion.py` | GPT-2 oficial instrumentado: tokens, probabilidad y atención |
+| `clonvoz/fases.py` | Griffin-Lim y DVAE para las fases audibles |
+| `clonvoz/web/generacion.py` | `POST /api/generar` (SSE) y `POST /api/fases/audio` |
+| `clonvoz/web/modelos.py` | Modelos cargados una sola vez y compartidos entre etapas |
+| `clonvoz/web/static/js/generacion.js` | Vista en vivo, mapa de atención, corridas y fases |
+| `clonvoz/cli_generacion.py` | Ejecución independiente de Flask |
+| `scripts/verificar_etapa3.py` | Verificación con los pesos reales |
+| `tests/test_generacion.py` | Generación, cancelación, SSE y fases con modelos reducidos |
+
+### Comprobación
+
+```powershell
+.\.venv-etapa2\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv-etapa2\Scripts\python.exe scripts/verificar_etapa3.py
+```
+
+La segunda requiere los pesos reales. Ejecuta `Xtts.inference` oficial hasta
+el GPT para obtener sus argumentos exactos y comprueba que la tokenización y
+los tokens (en modo determinista y con semilla) son idénticos a los de la
+etapa 3 instrumentada. También mide los milisegundos por token en `eager` y
+SDPA, y el error de ida y vuelta del DVAE.

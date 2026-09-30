@@ -24,8 +24,12 @@ def crear_app() -> Flask:
     memoria = MemoriaMel()
     app.extensions["memoria_mel"] = memoria
 
+    from .modelos import Modelos
+    app.extensions["modelos"] = Modelos()
     from .identidad import crear_rutas_identidad
     app.register_blueprint(crear_rutas_identidad(memoria))
+    from .generacion import crear_rutas_generacion
+    app.register_blueprint(crear_rutas_generacion(memoria))
 
     app.config["MAX_CONTENT_LENGTH"] = config.TAMANO_MAXIMO_BYTES
     app.json.sort_keys = False

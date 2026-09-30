@@ -8,7 +8,7 @@ PUERTO = 5000
 
 def main() -> None:
     app = crear_app()
-    print("\n  Clonador de voz — etapa 1 (audio) y etapa 2 (Perceiver)")
+    print("\n  Clonador de voz — etapas 1 (audio), 2 (Perceiver) y 3 (GPT-2)")
     print(f"  Abre http://{HOST}:{PUERTO} en Chrome o Edge")
     print("  Ctrl+C para detener\n")
     app.run(host=HOST, port=PUERTO, debug=False, threaded=True)

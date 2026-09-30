@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clonador de voz — Etapas 1 y 2</title>
+<title>Clonador de voz — Etapas 1 a 3</title>
 <!-- Icono incrustado: evita el 404 de /favicon.ico y no depende de ningún archivo. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg fill='%232a78d6'%3E%3Crect x='1' y='6' width='2' height='4' rx='1'/%3E%3Crect x='4.5' y='3' width='2' height='10' rx='1'/%3E%3Crect x='8' y='1' width='2' height='14' rx='1'/%3E%3Crect x='11.5' y='4.5' width='2' height='7' rx='1'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
@@ -45,7 +45,8 @@
       <p class="encabezado__subtitulo">
         Primero, cómo ve una computadora el sonido: forma de onda, espectrograma,
         mel-espectrograma de {{ n_mels }} canales y contorno de entonación. Después,
-        cómo XTTS-v2 condensa esa voz en 32 vectores.
+        cómo XTTS-v2 condensa esa voz en 32 vectores y, con ellos, genera los tokens de
+        audio de un texto nuevo.
       </p>
     </div>
     <button type="button" class="boton boton--discreto" id="conmutador-tema">
@@ -190,11 +191,124 @@
       renormalizan. La similitud entre consultas no mide identidad ni calidad de una voz.</p>
   </section>
 
+  <section class="panel etapa-tres" aria-labelledby="titulo-generacion">
+    <h2 id="titulo-generacion">Etapa 3 · Generación de tokens con GPT-2</h2>
+    <p>El GPT-2 de XTTS-v2 recibe los 32 vectores de la etapa 2 seguidos del texto en
+      fichas BPE, y predice uno a uno tokens de audio. Cada token es uno de los 1024
+      códigos con los que XTTS-v2 describe el sonido. Todavía no hay voz final: el
+      resultado de esta etapa es la secuencia.</p>
+    <p class="ayuda">En CPU cada token tarda decenas de milisegundos; una oración corta
+      produce entre 100 y 300 tokens. El modelo se detiene solo al emitir su token de fin
+      o al llegar al tope.</p>
+
+    <label class="etiqueta-campo" for="texto-generacion">Texto que dirá la voz</label>
+    <textarea id="texto-generacion" class="campo-texto" rows="3" maxlength="239"
+      placeholder="Escribe una oración en español."></textarea>
+    <p class="ayuda contador" id="contador-texto">0 / 239</p>
+
+    <div class="captura">
+      <label class="ayuda casilla"><input type="checkbox" id="determinista">
+        El más probable en cada paso, sin azar</label>
+      <button type="button" class="boton boton--primario" id="boton-generar" disabled>Generar</button>
+      <button type="button" class="boton" id="boton-detener" disabled>Detener</button>
+      <button type="button" class="boton boton--discreto" id="guardar-corrida" disabled>Guardar corrida</button>
+      <label class="boton boton--discreto" id="etiqueta-reproducir">
+        <input type="file" id="archivo-corrida" accept=".json,application/json" class="solo-lectores">
+        Reproducir corrida
+      </label>
+    </div>
+    <p id="estado-generacion" role="status" aria-live="polite"></p>
+
+    <div id="resultados-generacion" class="oculto">
+      <h3 class="subtitulo-etapa">El texto en fichas BPE</h3>
+      <div class="fichas" id="fichas-bpe"></div>
+      <p class="ayuda">El tokenizador BPE de XTTS-v2 (6681 fichas) parte el texto en minúsculas
+        en trozos frecuentes; ␣ es un espacio y [es] indica el idioma. Estas fichas, entre un
+        inicio y un fin de texto, van después de los 32 vectores de voz.</p>
+
+      <h3 class="subtitulo-etapa">Tokens de audio, uno por paso</h3>
+      <div class="progreso" aria-hidden="true"><span class="progreso__relleno" id="progreso-relleno"></span></div>
+      <p class="ayuda progreso__texto" id="progreso-texto"></p>
+      <div class="tokens-audio" id="tokens-audio" aria-label="Tokens de audio generados"></div>
+      <p class="ayuda">Cada número es un código de audio (0 a 1023); 1025 es el token de fin.
+        El resaltado es el último. Al pasar el puntero se ve la probabilidad con que el modelo
+        lo eligió.</p>
+
+      <figure class="figura figura-generacion">
+        <div class="pestanas" role="tablist" aria-label="Capa observada" id="pestanas-capas"></div>
+        <canvas class="mapa-generacion" id="mapa-generacion" role="img"
+          aria-label="Mapa de atención de toda la secuencia, una fila por paso"></canvas>
+        <div class="leyenda-zonas">
+          <span><i class="marca marca--voz"></i>32 vectores de voz</span>
+          <span><i class="marca marca--texto"></i>texto</span>
+          <span><i class="marca marca--audio"></i>tokens de audio</span>
+        </div>
+        <div class="zoom-texto" tabindex="0" role="region" aria-label="Atención al texto con desplazamiento horizontal">
+          <canvas id="zoom-texto" role="img" aria-label="Atención dirigida a cada ficha del texto, una fila por paso"></canvas>
+        </div>
+        <figcaption class="figura__pie">
+          <p class="figura__explicacion">
+            <strong>Atención del GPT-2.</strong> Cada fila es un paso: a qué posiciones de la
+            secuencia miró el modelo para elegir ese token, promediando sus 16 cabezas. La
+            secuencia crece un token por paso, por eso el mapa se ensancha hacia abajo. Arriba,
+            la secuencia completa; abajo, solo la parte del texto, con cada ficha BPE: la
+            diagonal que suele aparecer es el modelo "leyendo" el texto mientras genera.
+          </p>
+          <p class="figura__explicacion" id="lectura-atencion"></p>
+          <p class="ayuda">Cada fila se escala a su propio máximo y el color usa una potencia
+            0.4 para revelar pesos pequeños: sirve para comparar posiciones dentro de un paso,
+            no entre pasos. Los porcentajes sí usan los pesos reales.</p>
+        </figcaption>
+      </figure>
+      <dl class="resumen" id="resumen-generacion"></dl>
+    </div>
+
+    <section class="fases" aria-labelledby="titulo-fases">
+      <h3 class="subtitulo-etapa" id="titulo-fases">Escuchar por fases</h3>
+      <p class="ayuda">Audio crudo de cada transformación, calculado al pedirlo. Suena
+        metálico porque Griffin-Lim adivina la fase que el mel descartó, y apagado porque
+        el mel no guarda nada arriba de 8 kHz. Es la representación intermedia hecha
+        audible, no la calidad final: esa la da el vocoder de la etapa 4.</p>
+      <ol class="lista-fases" id="lista-fases">
+        <li data-fase="original">
+          <div><strong>1. Tu voz original.</strong> El punto de partida.</div>
+          <audio controls class="oculto"></audio><span class="ayuda estado-fase"></span>
+        </li>
+        <li data-fase="mel">
+          <div><strong>2. Desde el mel [80, T].</strong> Lo que conserva el mel de la etapa 1
+            y lo que pierde: la fase y los agudos.</div>
+          <button type="button" class="boton boton--discreto" disabled>Escuchar</button>
+          <audio controls class="oculto"></audio><span class="ayuda estado-fase"></span>
+        </li>
+        <li data-fase="identidad">
+          <div><strong>Etapa 2 · 32 vectores.</strong> No tiene fase audible: condicionan la
+            voz, pero no son una señal que se pueda convertir en sonido.</div>
+        </li>
+        <li data-fase="tokens_referencia">
+          <div><strong>3. Tu voz en tokens.</strong> Tu referencia convertida en códigos de
+            audio y de vuelta: 1024 símbolos bastan para describir una voz.</div>
+          <button type="button" class="boton boton--discreto" disabled>Escuchar</button>
+          <audio controls class="oculto"></audio><span class="ayuda estado-fase"></span>
+        </li>
+        <li data-fase="tokens_texto">
+          <div><strong>4. El texto nuevo.</strong> Los tokens del GPT-2 convertidos en mel y
+            en sonido: lo que el modelo "dijo", antes de cualquier vocoder neuronal.</div>
+          <button type="button" class="boton boton--discreto" disabled>Escuchar</button>
+          <audio controls class="oculto"></audio><span class="ayuda estado-fase"></span>
+        </li>
+      </ol>
+      <p class="ayuda">Guardar corrida descarga los eventos de la generación y los audios de
+        las fases 2 a 4 que hayas escuchado, para reproducirla sin el modelo. Nada se guarda
+        en el servidor.</p>
+    </section>
+  </section>
+
   <footer class="pie">
     Proyecto académico. Los pesos de XTTS-v2 se usan bajo la licencia no comercial
-    CPML. Solo la etapa 2 carga los módulos de condicionamiento. Los audios y
-    muestras WAV no se guardan en disco. El mel se descarta al reemplazarlo o
-    después de diez minutos; los pesos permanecen cargados mientras el servidor está abierto.
+    CPML. Las etapas 2 y 3 cargan los módulos de XTTS-v2 la primera vez que se usan. Los
+    audios y muestras WAV no se guardan en disco. El mel, los 32 vectores y los tokens se
+    descartan al reemplazar la referencia o después de diez minutos; los pesos permanecen
+    cargados mientras el servidor está abierto.
   </footer>
 
 </div>
@@ -202,5 +316,6 @@
 <script src="{{ url_for('static', filename='js/grabadora.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 <script src="{{ url_for('static', filename='js/identidad.js') }}"></script>
+<script src="{{ url_for('static', filename='js/generacion.js') }}"></script>
 </body>
 </html>

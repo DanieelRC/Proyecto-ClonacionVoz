@@ -249,6 +249,7 @@
       }
       datos.resultados.forEach(mostrarResultado);
       resultados.classList.toggle("comparacion-identidad--doble", datos.resultados.length === 2);
+      document.dispatchEvent(new CustomEvent("etapa2-completada", { detail: { id_corrida: referencia.id_corrida } }));
       mensaje.textContent = "Etapa 2 terminada usando el mel de etapa 1. Carga del modelo: " +
         datos.carga_modelo_ms + " ms. No se volvió a calcular el mel.";
     } catch (error) {

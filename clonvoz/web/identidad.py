@@ -1,8 +1,8 @@
 """Rutas web para la extracción y visualización de identidad (etapa 2)."""
 
 import os
-import threading
 import time
+from contextlib import suppress
 
 from flask import Blueprint, current_app, jsonify, request, session
 
@@ -11,11 +11,14 @@ from ..graficas_identidad import renderizar_identidades
 from ..graficas import como_data_uri
 
 
+def fabrica_identidad():
+    """Construye el codificador de la etapa 2 con la carpeta y el dispositivo configurados."""
+    return CodificadorIdentidad(carpeta_modelo(), os.environ.get("CLONVOZ_DISPOSITIVO", "auto"))
+
+
 def crear_rutas_identidad(memoria):
     """Crea el blueprint con los endpoints de la etapa 2 utilizando la memoria de mel compartida."""
     rutas = Blueprint("identidad", __name__)
-    modelo = None
-    cerrojo = threading.Lock()
 
     @rutas.post("/api/descartar")
     def descartar():
@@ -29,7 +32,6 @@ def crear_rutas_identidad(memoria):
     @rutas.post("/api/identidad")
     def identidad():
         """Ejecuta el Perceiver sobre los mels guardados en sesión y devuelve resultados y visualizaciones."""
-        nonlocal modelo
         datos = request.get_json(silent=True)
         if not isinstance(datos, dict) or datos.get("consentimiento") != "si":
             return jsonify(errores=["Completa la etapa 1 y confirma el consentimiento."]), 400
@@ -48,14 +50,17 @@ def crear_rutas_identidad(memoria):
 
         try:
             inicio = time.perf_counter()
-            with cerrojo:
-                if modelo is None:
-                    modelo = CodificadorIdentidad(carpeta_modelo(), os.environ.get("CLONVOZ_DISPOSITIVO", "auto"))
+            modelo = current_app.extensions["modelos"].obtener("identidad", fabrica_identidad)
             carga_ms = (time.perf_counter() - inicio) * 1000
 
             resultados = [identidad_desde_mel(e.mel, modelo, e.id_corrida, e.duracion_s, e.advertencias)
                           for e in entradas]
             figuras = renderizar_identidades(resultados)
+            # La etapa 3 usa estos vectores tal cual; no los vuelve a calcular.
+            for entrada, resultado in zip(entradas, resultados):
+                with suppress(KeyError):  # si la entrada caducó justo ahora, no hay dónde anotar
+                    memoria.anotar(session.get("propietario"), entrada.id_corrida,
+                                   identidad=resultado.vectores)
 
             salida = []
             for entrada, resultado, graficas in zip(entradas, resultados, figuras):

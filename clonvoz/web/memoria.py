@@ -1,4 +1,8 @@
-"""Almacenamiento temporal en memoria de resultados de mel para la etapa 2."""
+"""Almacenamiento temporal en memoria del mel y de lo que producen las etapas 2 y 3.
+
+Nunca se guarda el WAV ni sus muestras: solo el mel, la identidad [32, 1024] y
+los tokens de audio, con la misma caducidad para todo.
+"""
 
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -15,6 +19,9 @@ class MelGuardado:
     mel: np.ndarray
     duracion_s: float
     advertencias: list[str]
+    identidad: np.ndarray | None = None
+    tokens_audio: np.ndarray | None = None
+    texto_generado: str | None = None
 
 
 class MemoriaMel:
@@ -47,6 +54,15 @@ class MemoriaMel:
             if registro is None or registro[0].propietario != propietario:
                 raise KeyError(identificador)
             return registro[0]
+
+    def anotar(self, propietario, identificador, **campos):
+        """Agrega a una entrada existente el resultado de una etapa posterior."""
+        with self.cerrojo:
+            registro = self.entradas.get(identificador)
+            if registro is None or registro[0].propietario != propietario:
+                raise KeyError(identificador)
+            for nombre, valor in campos.items():
+                setattr(registro[0], nombre, valor)
 
     def descartar(self, propietario, identificador):
         """Elimina una entrada y cancela su temporizador."""

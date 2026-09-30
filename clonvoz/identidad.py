@@ -65,48 +65,85 @@ def carpeta_modelo() -> Path:
     return Path(os.environ.get("CLONVOZ_MODELO", "modelos/xtts_v2"))
 
 
+def comprobar_archivos(carpeta, nombres=("config.json", "model.pth")) -> Path:
+    """Verifica que existan los archivos del modelo y devuelve la carpeta como Path."""
+    carpeta = Path(carpeta)
+    faltan = [nombre for nombre in nombres if not (carpeta / nombre).is_file()]
+    if faltan:
+        raise ModeloNoDisponible(
+            f"Faltan {', '.join(faltan)} de XTTS-v2 en {carpeta}. "
+            "Consulta la preparación del modelo en el README."
+        )
+    return carpeta
+
+
+def importar_torch():
+    """Importa PyTorch con un mensaje claro si el entorno no lo tiene."""
+    try:
+        import torch
+        import TTS  # noqa: F401  comprueba también que coqui-tts se pueda importar
+    except (ImportError, OSError) as exc:
+        raise ModeloNoDisponible(
+            "No se pudieron cargar PyTorch y los módulos de coqui-tts. "
+            "Usa el entorno de la etapa 2 indicado en el README."
+        ) from exc
+    return torch
+
+
+def elegir_dispositivo(torch, dispositivo="auto") -> str:
+    """Resuelve auto/cpu/cuda comprobando que CUDA exista si se pide."""
+    if dispositivo not in ("auto", "cpu", "cuda"):
+        raise ModeloNoDisponible("El dispositivo debe ser auto, cpu o cuda.")
+    elegido = ("cuda" if torch.cuda.is_available() else "cpu") if dispositivo == "auto" else dispositivo
+    if elegido == "cuda" and not torch.cuda.is_available():
+        raise ModeloNoDisponible("CUDA no está disponible. Selecciona cpu o auto.")
+    return elegido
+
+
+def leer_checkpoint(carpeta):
+    """Lee config.json y model.pth de forma segura; devuelve (configuración, pesos).
+
+    weights_only=True solo admite tensores y las cuatro clases de configuración
+    conocidas del checkpoint oficial. mmap evita copiar los 1.9 GB a memoria:
+    cada módulo toma después solo los pesos de su prefijo.
+    """
+    carpeta = comprobar_archivos(carpeta)
+    torch = importar_torch()
+    from TTS.config.shared_configs import BaseDatasetConfig
+    from TTS.tts.configs.xtts_config import XttsConfig
+    from TTS.tts.models.xtts import XttsArgs, XttsAudioConfig
+
+    try:
+        datos = json.loads((carpeta / "config.json").read_text(encoding="utf-8"))
+        with torch.serialization.safe_globals([XttsConfig, XttsArgs, XttsAudioConfig, BaseDatasetConfig]):
+            checkpoint = torch.load(carpeta / "model.pth", map_location="cpu", weights_only=True, mmap=True)
+        pesos = {k.removeprefix("xtts."): v for k, v in checkpoint["model"].items()}
+    except (KeyError, ValueError, RuntimeError, OSError, EOFError, pickle.UnpicklingError) as exc:
+        raise ModeloNoDisponible(
+            "No se pudo leer el checkpoint de XTTS-v2. "
+            "Comprueba los archivos oficiales y sus versiones. Detalle: " + str(exc)
+        ) from exc
+    return datos, pesos
+
+
 class CodificadorIdentidad:
     """Carga los módulos preentrenados de XTTS-v2 y gestiona la inferencia del Perceiver."""
 
     def __init__(self, carpeta, dispositivo="auto"):
-        carpeta = Path(carpeta)
-        if not all((carpeta / nombre).is_file() for nombre in ("config.json", "model.pth")):
-            raise ModeloNoDisponible(
-                "Faltan config.json y/o model.pth de XTTS-v2. "
-                "Consulta la preparación de la etapa 2 en el README."
-            )
-
-        try:
-            import torch
-            from TTS.tts.layers.tortoise.autoregressive import ConditioningEncoder
-            from TTS.tts.layers.xtts.perceiver_encoder import PerceiverResampler
-            from TTS.config.shared_configs import BaseDatasetConfig
-            from TTS.tts.configs.xtts_config import XttsConfig
-            from TTS.tts.models.xtts import XttsArgs, XttsAudioConfig
-        except (ImportError, OSError) as exc:
-            raise ModeloNoDisponible(
-                "No se pudieron cargar PyTorch y los módulos de coqui-tts. "
-                "Usa el entorno de la etapa 2 indicado en el README."
-            ) from exc
+        comprobar_archivos(carpeta)
+        torch = importar_torch()
+        from TTS.tts.layers.tortoise.autoregressive import ConditioningEncoder
+        from TTS.tts.layers.xtts.perceiver_encoder import PerceiverResampler
 
         self.torch = torch
-        if dispositivo not in ("auto", "cpu", "cuda"):
-            raise ModeloNoDisponible("El dispositivo debe ser auto, cpu o cuda.")
-        self.dispositivo = ("cuda" if torch.cuda.is_available() else "cpu") if dispositivo == "auto" else dispositivo
-        if self.dispositivo == "cuda" and not torch.cuda.is_available():
-            raise ModeloNoDisponible("CUDA no está disponible. Selecciona cpu o auto.")
+        self.dispositivo = elegir_dispositivo(torch, dispositivo)
+        datos, pesos = leer_checkpoint(carpeta)
 
         try:
-            datos = json.loads((carpeta / "config.json").read_text(encoding="utf-8"))
             args = datos["model_args"]
             if (args["gpt_n_model_channels"] != 1024 or args["gpt_n_heads"] != 16
                     or not args["gpt_use_perceiver_resampler"]):
                 raise ValueError("La configuración no corresponde al Perceiver de XTTS-v2.")
-
-            with torch.serialization.safe_globals([XttsConfig, XttsArgs, XttsAudioConfig, BaseDatasetConfig]):
-                checkpoint = torch.load(carpeta / "model.pth", map_location="cpu", weights_only=True, mmap=True)
-            pesos = checkpoint["model"]
-            pesos = {k.removeprefix("xtts."): v for k, v in pesos.items()}
 
             self.encoder = ConditioningEncoder(80, 1024, num_attn_heads=16)
             self.perceiver = PerceiverResampler(dim=1024, depth=2, dim_context=1024,
