@@ -1,6 +1,5 @@
-# Entorno de la etapa 1. Desde la etapa 2 el proyecto se ejecuta con
-# requirements-etapa2.txt, que fija torch 2.8.0 en vez de 2.14.0 por el motivo
-# explicado en ese archivo. No instales ambos en el mismo entorno.
+# Entorno unificado del proyecto (Etapa 1: DSP y Etapa 2: Perceiver / XTTS-v2).
+# Probado y verificado en Windows con Python 3.11.9 (torch 2.14.0 + torchcodec 0.16.0 + coqui-tts 0.27.5).
 coqui-tts==0.27.5
 coqpit-config==0.2.5
 transformers==4.57.6

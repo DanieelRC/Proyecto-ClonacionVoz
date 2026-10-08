@@ -124,8 +124,8 @@
     panel.appendChild(tabla);
     texto("p", "Cómo se calculan: se suman los pesos destinados a todos los instantes del audio y, por separado, a las consultas; se promedian las 32 consultas y las 8 cabezas de atención y se multiplican por 100. Los dos destinos suman aproximadamente 100 % en cada capa. El redondeo puede producir pequeñas diferencias; 0.00 % puede representar un valor muy pequeño.");
     texto("p", "Estos porcentajes indican cómo se reparte la atención. No indican precisión, calidad de clonación, porcentaje de voz reconocida ni cuánto del audio se escuchó. Tampoco miden por sí solos la contribución final de cada parte al resultado.");
-    texto("h4", "Por qué un mapa puede verse casi negro");
-    texto("p", "Los mapas de atención solo dibujan los pesos dirigidos al audio. El eje horizontal es el tiempo y cada fila es una consulta. Oscuro significa peso bajo; claro, peso alto según la barra. El peso dirigido a las consultas no aparece en esos mapas, pero sí en la tabla.");
+    texto("h4", "Por qué un mapa puede verse casi blanco");
+    texto("p", "Los mapas de atención solo dibujan los pesos dirigidos al audio. El eje horizontal es el tiempo y cada fila es una consulta. Blanco significa peso cero o muy bajo; cuanto más oscuro, mayor peso según la barra. El peso dirigido a las consultas no aparece en esos mapas, pero sí en la tabla.");
     (datos.resumen_atencion || []).forEach(function (capa) {
       texto("p", capa.capa + ": en este análisis destina " + porcentaje(capa.audio_porcentaje) +
         " al audio y " + porcentaje(capa.consultas_porcentaje) + " a las consultas, en promedio. " +
@@ -133,7 +133,7 @@
           "La mayor parte va a las consultas; esa parte no colorea el mapa del audio." :
           "La mayor parte va al audio, pero puede repartirse entre muchos instantes o concentrarse en unos pocos; no tiene que iluminar todo el mapa."));
     });
-    texto("p", "El color usa una escala de potencia 0.4 para hacer visibles pesos pequeños; la barra conserva los valores reales. No se inventan pesos ni se redistribuyen para llenar la imagen. Si todos son cero, aparece un mensaje. Un mapa oscuro por sí solo no demuestra un fallo ni garantiza que el resultado sea correcto.");
+    texto("p", "El color usa una escala de potencia 0.4 para hacer visibles pesos pequeños; la barra conserva los valores reales. No se inventan pesos ni se redistribuyen para llenar la imagen. Si todos son cero, aparece un mensaje. Un mapa casi blanco por sí solo no demuestra un fallo ni garantiza que el resultado sea correcto.");
     texto("h4", "Qué muestran las otras vistas");
     texto("p", "Similitud entre consultas compara la dirección de los 32 vectores entre sí: 1 significa la misma dirección, 0 direcciones perpendiculares y −1 direcciones opuestas. La diagonal vale 1 para vectores no nulos. No compara personas ni mide la calidad de su voz.");
     texto("p", "En los detalles puedes ver la matriz original [32, 1024] y una versión con la media de cada dimensión restada, que destaca diferencias entre consultas. Esa resta solo sirve para visualizar: los vectores originales se conservan intactos para las siguientes etapas.");

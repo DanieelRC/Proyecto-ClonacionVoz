@@ -4,13 +4,18 @@ import io
 import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
-from matplotlib.colors import PowerNorm
+from matplotlib.colors import LinearSegmentedColormap, PowerNorm
 from matplotlib import colormaps
 from .graficas import TEMAS, FAMILIA, TAMANOS
 from . import config
 
 PIXELES_POR_FRAME = 2
 ANCHO_MAXIMO_ATENCION = 1600
+
+# Fondo blanco para el peso cero y magma invertido hacia arriba: los pesos
+# pequeños se distinguen en ambos temas, cosa que no pasaba sobre fondo negro.
+MAPA_ATENCION = LinearSegmentedColormap.from_list(
+    'atencion', ['#ffffff', *colormaps['magma_r'](np.linspace(.12, 1, 8))])
 
 
 def similitud_consultas(vectores):
@@ -93,7 +98,7 @@ def renderizar_identidades(resultados):
                              color=tema['texto'], fontsize=TAMANOS['etiqueta'], wrap=True)
                     eje.set_axis_off()
                 else:
-                    colores = colormaps['magma' if es_atencion else 'RdBu_r'].copy()
+                    colores = (MAPA_ATENCION if es_atencion else colormaps['RdBu_r']).copy()
                     colores.set_bad('#808080')
                     opciones = {'cmap': colores}
                     if es_atencion:

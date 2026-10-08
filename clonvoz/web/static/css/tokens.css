@@ -84,29 +84,6 @@
 
 /* El modo oscuro es un modo elegido, no una inversión automática: el acento
    tiene su propio paso, validado contra la superficie oscura (RNF-07). */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-tema="claro"]) {
-    color-scheme: dark;
-
-    --superficie-pagina: #080e1a;
-    --superficie: #0f172a;
-    --superficie-hundida: #16203a;
-    --borde: #22304a;
-    --borde-fuerte: #35456a;
-
-    --texto: #f1f5f9;
-    --texto-suave: #9aa8bd;
-    --texto-tenue: #7d8ca3;
-
-    --ruta-audio: #3987e5;
-    --ruta-texto: #c98500;
-    --ruta-generacion: #d55181;
-    --ruta-salida: #008300;
-
-    --sombra: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 12px rgb(0 0 0 / 25%);
-  }
-}
-
 :root[data-tema="oscuro"] {
   color-scheme: dark;
 

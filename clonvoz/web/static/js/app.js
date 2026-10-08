@@ -47,7 +47,7 @@
 
   function aplicarTema(tema, recordar) {
     document.documentElement.setAttribute("data-tema", tema);
-    elemento("etiqueta-tema").textContent = tema === "oscuro" ? "Modo claro" : "Modo oscuro";
+    elemento("etiqueta-tema").textContent = tema === "claro" ? "Modo oscuro" : "Modo claro";
     if (recordar) {
       try {
         localStorage.setItem("tema", tema);
@@ -65,21 +65,6 @@
       const actual = document.documentElement.getAttribute("data-tema");
       aplicarTema(actual === "oscuro" ? "claro" : "oscuro", true);
     });
-
-    // Si nadie eligió tema a mano, se sigue al sistema operativo.
-    if (window.matchMedia) {
-      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function (evento) {
-        let elegido = null;
-        try {
-          elegido = localStorage.getItem("tema");
-        } catch (e) {
-          elegido = null;
-        }
-        if (elegido !== "claro" && elegido !== "oscuro") {
-          aplicarTema(evento.matches ? "oscuro" : "claro", false);
-        }
-      });
-    }
   }
 
   // -------------------------------------------------------------- mensajes
@@ -97,7 +82,7 @@
       const icono = document.createElement("span");
       icono.className = "mensaje__icono";
       icono.setAttribute("aria-hidden", "true");
-      icono.textContent = clase === "mensaje--error" ? "✕" : "!";
+      icono.textContent = clase === "mensaje--error" ? "X" : "!";
 
       const cuerpo = document.createElement("span");
       // El texto dice siempre de qué se trata: el color nunca es la única señal.
@@ -406,7 +391,7 @@
         est.f0_media_hz === null
           ? "sin voz detectada"
           : est.f0_media_hz.toFixed(0) + " Hz (" +
-            est.f0_min_hz.toFixed(0) + "–" + est.f0_max_hz.toFixed(0) + ")",
+          est.f0_min_hz.toFixed(0) + "–" + est.f0_max_hz.toFixed(0) + ")",
       ],
       ["Frames con voz", est.porcentaje_con_voz.toFixed(1) + " %"],
       ["Pico / RMS", est.pico.toFixed(3) + " / " + est.rms.toFixed(4)],
@@ -484,7 +469,7 @@
         if (datos.id_corrida) fetch("/api/descartar", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id_corrida: datos.id_corrida }),
-        }).catch(function () {});
+        }).catch(function () { });
         return;
       }
 

@@ -1,280 +1,228 @@
-## Requisitos del Sistema
+# Clonador de Voz — Etapa 1 (DSP) y Etapa 2 (Perceiver / XTTS-v2)
 
-- **Sistema Operativo:** Windows 10/11 (probado en Windows 64-bit).
-- **Versión de Python:** **Python 3.10 o 3.11**. La etapa 1 se probó con
-  Python 3.11.9; el entorno de la etapa 2, con Python 3.10.9.
-- **Audio de referencia:** Archivo en formato `.wav` (por ejemplo, `muestra_hablante.wav`).
+Sistema de análisis acústico y extracción de identidad de voz basado en la arquitectura de **XTTS-v2**. El proyecto procesa señales de audio (WAV), genera representaciones en tiempo-frecuencia (forma de onda, STFT, Mel-espectrograma de 80 canales y contorno de entonación F0), y calcula el condicionamiento latente de hablante (`[32, 1024]`) junto con mapas de atención reales mediante el módulo **Perceiver Resampler**.
 
-## Instalación y Configuración
+---
 
-### 1. Crear el entorno virtual
+## Inicio Rápido (Cómo ejecutar el código)
 
-Desde la terminal en la raíz del proyecto:
+Sigue estos sencillos pasos para levantar el proyecto desde cero:
+
+### 1. Requisitos Previos del Sistema
+- **Sistema Operativo:** Windows 10/11 (64-bit).
+- **Versión de Python Requerida:** **Python 3.11.9** (soportado Python 3.11.x o 3.10.x de 64-bit).
+
+### 2. Crear el Entorno Virtual
+Abre una terminal (PowerShell o CMD) en la carpeta raíz del proyecto y crea el entorno con la versión específica de Python:
 
 ```powershell
+# Usando el lanzador de Python en Windows (asegura usar la versión 3.11):
+py -3.11 -m venv .venv
+
+# O directamente si python ya apunta a Python 3.11:
 python -m venv .venv
 ```
 
-### 2. Activar el entorno virtual
-
-- **PowerShell:**
+### 3. Activar el Entorno Virtual
+- **En PowerShell:**
   ```powershell
+  # (Si PowerShell restringe scripts en tu equipo, ejecuta primero una vez:
+  #  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass)
   .\.venv\Scripts\Activate.ps1
   ```
-- **CMD (Símbolo del sistema):**
+- **En CMD (Símbolo del sistema):**
   ```cmd
   .\.venv\Scripts\activate.bat
   ```
 
-### 3. Instalar las dependencias exactas
+*(Sabrás que está activado porque tu terminal mostrará el prefijo `(.venv)`).*
 
-Para instalar todas las versiones probadas y compatibles:
+### 4. Instalar las Dependencias
+Actualiza el gestor `pip` e instala las librerías verificadas desde `requirements.txt`:
 
 ```powershell
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-La etapa 1 no necesita ninguna dependencia adicional: `librosa`, `matplotlib`,
-`soundfile`, `torchaudio` y `Flask` ya están fijados en `requirements.txt`.
+### 5. Descargar los Pesos del Modelo (Solo la primera vez)
+Para utilizar la **Etapa 2 (Perceiver / Identidad de voz)** se requiere el checkpoint oficial de XTTS-v2 (~1.9 GB en `modelos/xtts_v2/`). Se descarga con fines académicos:
 
----
+```powershell
+python scripts/descargar_modelo_etapa2.py --uso-academico
+```
+*(Si los archivos `model.pth` y `config.json` ya están presentes en la carpeta `modelos/xtts_v2/`, el script lo detectará y los conservará).*
 
-## Etapa 1 — Preprocesamiento de audio y características visuales
-
-Primer prototipo funcional del proyecto. Carga o graba un audio y extrae de él
-cuatro representaciones, **sin XTTS-v2, sin GPU y sin ninguna red neuronal**:
-
-1. **Forma de onda** — amplitud contra tiempo.
-2. **Espectrograma STFT** — frecuencia contra tiempo, por Transformada de Fourier
-   de Tiempo Corto.
-3. **Mel-espectrograma de 80 canales** — con los parámetros exactos de XTTS-v2,
-   para que la etapa 2 lo pueda consumir tal cual.
-4. **Contorno de F0** — la entonación a lo largo del audio.
-
-### Ejecutar la aplicación web
+### 6. Ejecutar la Aplicación Web
+Inicia el servidor Flask local:
 
 ```powershell
 python app.py
 ```
 
-Luego abre **http://127.0.0.1:5000** en Chrome o Edge.
+Abre en tu navegador (Google Chrome o Microsoft Edge):
+**http://127.0.0.1:5000**
 
-> **Usa `127.0.0.1`, no la IP de red de la máquina.** El navegador solo permite
-> usar el micrófono en un "contexto seguro": HTTPS o localhost. Abierta por
-> `192.168.x.x` la página carga, pero el micrófono queda bloqueado.
+> [!IMPORTANT]
+> **Usa siempre `127.0.0.1`, no la IP local de red (ej. 192.168.x.x).** Los navegadores modernos solo habilitan el permiso del micrófono en contextos seguros (HTTPS o `localhost`/`127.0.0.1`).
 
-El audio se procesa en memoria y no se guarda en ningún archivo del servidor.
+---
 
-### Ejecutar solo el procesamiento, sin servidor
+## Scripts del Proyecto y Orden de Ejecución
 
+A continuación se detalla la secuencia recomendada para configurar, validar y utilizar el sistema:
+
+### Diagrama de Flujo y Orden Cronológico
+
+```
+[1. Entorno]
+ py -3.11 -m venv .venv  -->  pip install -r requirements.txt
+        │
+        ▼
+[2. Pesos del Modelo (Una sola vez)]
+ python scripts/descargar_modelo_etapa2.py --uso-academico
+        │
+        ▼
+[3. Verificaciones y Pruebas (Opcional)]
+ ├── python scripts/verificar_compatibilidad_mel.py audios/Dany1.wav
+ ├── python scripts/verificar_etapa2.py
+ └── python -m unittest discover -s tests -v
+        │
+        ▼
+[4. Ejecución Principal]
+ python app.py  ===>  Abrir http://127.0.0.1:5000 (UI Web Completa)
+        │
+        ▼
+[5. Flujos Alternativos por Consola (CLI)]
+ ├── python -m clonvoz.cli audios/Dany1.wav --salida salidas/ --guardar-mel
+ └── python -m clonvoz.cli_identidad audios/Dany1.wav --consentimiento --salida salidas/etapa2
+```
+
+### Resumen de Scripts
+
+| Orden | Script / Comando | Propósito | ¿Cuándo ejecutarlo? |
+|---|---|---|---|
+| **Paso 1** | `scripts/descargar_modelo_etapa2.py --uso-academico` | Descarga `config.json` y `model.pth` oficiales de Hugging Face a `modelos/xtts_v2/`. | **Obligatorio una vez** antes de usar la Etapa 2. |
+| **Paso 2** | `scripts/verificar_compatibilidad_mel.py <audio.wav>` | Valida que el Mel calculado por la Etapa 1 coincida numéricamente (tolerancia `< 1e-4`) con `wav_to_mel_cloning` de XTTS-v2. | Opcional, para verificar coherencia matemática de la Etapa 1. |
+| **Paso 3** | `scripts/verificar_etapa2.py` | Evalúa el Perceiver con los pesos reales, comprueba hooks sin fugas y compara la salida con `get_style_emb`. | Opcional, para validar la integración de la Etapa 2. |
+| **Paso 4** | `python -m unittest discover -s tests -v` | Ejecuta la batería de 9 tests unitarios (memoria temporal, caducidad, gráficos, aislamiento de sesión). | Opcional, para asegurar que no haya regresiones de código. |
+| **Paso 5** | **`app.py`** | **Inicia el servidor web Flask (Etapas 1 y 2 integradas)** con interfaz gráfica interactiva. | **Ejecución principal del proyecto**. |
+| **Paso 6 (CLI 1)** | `python -m clonvoz.cli <audio.wav> --salida salidas/ --guardar-mel` | Procesa un archivo de audio por línea de comandos sin servidor web. Genera imágenes PNG y el tensor `mel.npy`. | Cuando se requiera analizar audios por lotes o sin navegador. |
+| **Paso 7 (CLI 2)** | `python -m clonvoz.cli_identidad <audio.wav> --consentimiento --salida salidas/etapa2` | Encadena Etapas 1 y 2 por consola, exportando `identidad.npy`, `atencion.npy` y `identidad.json`. | Para análisis de identidad y atención por terminal. |
+| **Paso 8 (Extra)** | `python main.py` | Demostración mínima de síntesis de voz con XTTS-v2 (`tts_to_file`). | Opcional, para pruebas de síntesis TTS de referencia. |
+
+---
+
+## Revisión de Librerías y Dependencias (`requirements.txt`)
+
+El archivo [requirements.txt](requirements.txt) contiene el entorno unificado y probado en **Windows con Python 3.11.9**.
+
+### Librerías Clave Utilizadas y su Rol:
+
+| Librería | Versión Instalada | Rol en el Proyecto |
+|---|---|---|
+| **`torch`** | `2.14.0` | Motor de cómputo tensorial y ejecución del Perceiver Resampler. |
+| **`torchaudio`** | `2.11.0` | Operaciones de procesamiento de señales de audio con tensores. |
+| **`torchcodec`** | `0.16.0` | Decodificador multimedia requerido internamente por Coqui TTS en PyTorch ≥ 2.9. |
+| **`coqui-tts`** | `0.27.5` | Implementación de XTTS-v2 (`ConditioningEncoder`, `PerceiverResampler`). |
+| **`Flask`** | `3.1.3` | Servidor web HTTP, API REST (`/api/analizar`, `/api/identidad`, `/api/descartar`). |
+| **`Werkzeug`** | `3.1.8` | Gestión de peticiones WSGI y control de límites de carga de archivos. |
+| **`librosa`** | `0.11.0` | Algoritmos DSP: STFT, banco de filtros Mel (HTK/Slaney) y estimación de F0 (`pyin`/`yin`). |
+| **`soundfile`** | `0.14.0` | Lectura y validación de archivos WAV PCM (16/24/32 bits, float). |
+| **`matplotlib`** | `3.11.2` | Renderizado científico de ondas, espectrogramas y mapas de calor de atención a PNG en memoria. |
+| **`numpy`** | `1.26.4` | Cálculo matricial numérico de alta precisión. |
+| **`transformers`** | `4.57.6` | Componentes auxiliares y tokenizadores requeridos por Coqui TTS. |
+
+> [!NOTE]
+> **Sobre `requirements-etapa2.txt`:** Se mantiene como un perfil alternativo ligero para entornos de solo CPU que utilicen PyTorch 2.8.0 sin necesidad de `torchcodec`. Para el uso normal y completo del proyecto, **`requirements.txt` es el archivo oficial**.
+
+---
+
+## Etapa 1 — Preprocesamiento de audio y características visuales
+
+La primera etapa carga o graba una referencia de voz y extrae cuatro representaciones visuales y numéricas **mediante DSP clásico puro (sin redes neuronales ni GPU)**:
+
+1. **Forma de onda:** Amplitud en función del tiempo.
+2. **Espectrograma STFT:** Densidad espectral de frecuencia (0 a 11025 Hz) calculada mediante Transformada de Fourier de Tiempo Corto.
+3. **Mel-espectrograma de 80 canales:** Extraído con los parámetros exactos de XTTS-v2 para garantizar compatibilidad con la siguiente etapa:
+   - Frecuencia de muestreo: **22050 Hz** (resampleo automático si el archivo viene en otra frecuencia).
+   - `n_fft = 2048`, `hop_length = 256`, `win_length = 1024`.
+   - Escala Mel: `htk`, normalización `slaney`, rango `0 - 8000 Hz`.
+4. **Contorno de F0 (Tono Fundamental):** Estimación de la entonación vocal a lo largo del tiempo utilizando el algoritmo probabilístico **pYIN** (o YIN alternativo).
+
+### Ejecución por Línea de Comandos (CLI)
 ```powershell
-python -m clonvoz.cli audios/muestra_hablante.wav --salida salidas/ --guardar-mel
+python -m clonvoz.cli audios/Dany1.wav --salida salidas/etapa1 --guardar-mel
 ```
+Genera los cuatro archivos PNG (`forma_de_onda.png`, `espectrograma.png`, `mel.png`, `f0.png`), el reporte `caracteristicas.json` y el tensor `mel.npy` de dimensiones `[80, T]`.
 
-Escribe las cuatro imágenes, un `caracteristicas.json` con formas, estadísticas y
-tiempos, y —con `--guardar-mel`— un `mel.npy` de `[80, T]` listo para la etapa 2.
-Opciones: `--tema claro|oscuro|ambos`, `--metodo-f0 pyin|yin`.
+---
 
-### Verificar la compatibilidad con la etapa 2
+## Etapa 2 — Perceiver e Identidad de Voz
 
+Esta etapa consume directamente el Mel-espectrograma calculado en la Etapa 1 y lo procesa mediante los módulos preentrenados oficiales de **XTTS-v2**:
+
+1. **ConditioningEncoder:** Proyecta los 80 canales del Mel a representaciones de dimensión 1024 mediante capas convolucionales y atención multi-cabeza.
+2. **Perceiver Resampler:** Transforma secuencias de longitud variable en un conjunto fijo de **32 vectores latentes de dimensión 1024** (`[32, 1024]`).
+3. **Captura no invasiva de Atención:** Mediante un forward hook sobre la última capa (`conditioning_perceiver.layers[-1][0].attend.attn_dropout`), se capturan las matrices reales de atención (`[32, T]`) sin alterar los cálculos originales.
+4. **Matriz de Cosenos de Consultas:** Permite inspeccionar la similitud y ortogonalidad entre los 32 vectores de identidad.
+5. **Comparación de Referencias:** Permite mantener un hablante A de referencia, procesar un hablante B y comparar visualmente sus mapas de atención con escalas de color compartidas.
+
+### Privacidad y Gestión Efímera en Memoria
+- El servidor **no almacena audios grabados ni tensores en disco**.
+- Los Mel-espectrogramas se conservan en memoria RAM mediante un puente efímero con capacidad máxima de 8 corridas y tiempo de vida (TTL) de **10 minutos**.
+- Al descartar una muestra o cerrar la pestaña, la memoria se libera de inmediato.
+
+### Ejecución por Línea de Comandos (CLI Identidad)
 ```powershell
-python scripts/verificar_compatibilidad_mel.py audios/muestra_hablante.wav
+python -m clonvoz.cli_identidad audios/Dany1.wav --consentimiento --salida salidas/etapa2
+```
+Exporta:
+- `identidad.npy` — Vector de condicionamiento latente `[32, 1024]`.
+- `atencion.npy` — Matriz de atención audio-consultas `[32, T]`.
+- `atencion_consultas.npy` — Atención interna entre consultas `[32, 32]`.
+- `identidad.json` — Métricas numéricas, tiempos en milisegundos y distribución de masa de atención.
+- Gráficas PNG en temas claro y oscuro.
+
+---
+
+## Estructura del Proyecto
+
+```
+ClonacionVoz/
+├── app.py                              # Lanzador principal del servidor web Flask
+├── main.py                             # Demostración básica de síntesis TTS
+├── requirements.txt                    # Dependencias completas y unificadas (Python 3.11)
+├── requirements-etapa2.txt             # Dependencia alternativa ligera para CPU
+├── clonvoz/
+│   ├── config.py                       # Constantes y parámetros acústicos unificados
+│   ├── audio.py                        # Carga, validación y remuestreo de WAV
+│   ├── caracteristicas.py              # Extracción DSP (Waveform, STFT, Mel, F0)
+│   ├── graficas.py                     # Renderizado de figuras de Etapa 1
+│   ├── analisis.py                     # Orquestador del análisis de audio
+│   ├── identidad.py                    # Inferencia de XTTS-v2 Perceiver y hooks
+│   ├── graficas_identidad.py           # Renderizado de mapas de atención y cosenos
+│   ├── cli.py                          # Línea de comandos para Etapa 1
+│   ├── cli_identidad.py                # Línea de comandos para Etapa 2
+│   └── web/
+│       ├── servidor.py                 # Rutas y controladores de Flask
+│       ├── memoria.py                  # Gestor temporal de mels en RAM (TTL)
+│       ├── identidad.py                # Controlador web de Etapa 2
+│       ├── templates/index.html        # Plantilla HTML de la aplicación
+│       └── static/                     # CSS (tokens y temas) y JavaScript
+├── scripts/
+│   ├── descargar_modelo_etapa2.py      # Descarga oficial de Hugging Face (~1.9 GB)
+│   ├── verificar_compatibilidad_mel.py # Verificación matemática Mel vs XTTS-v2
+│   └── verificar_etapa2.py             # Verificación del Perceiver con pesos reales
+├── tests/
+│   ├── test_graficas_identidad.py      # Tests de visualizaciones y matrices
+│   └── test_identidad.py               # Tests de memoria, sesiones y regresión
+├── audios/                             # Muestras de audio de prueba (.wav)
+└── modelos/xtts_v2/                    # Ubicación del checkpoint (config.json y model.pth)
 ```
 
-Compara el mel-espectrograma contra `wav_to_mel_cloning` de XTTS-v2 y
-falla si la diferencia supera `1e-4`. Vale la pena correrlo cada vez que se
-toquen los parámetros: si el mel no coincide, el error no aparece en esta etapa
-sino en la etapa 2, disfrazado de "el modelo no funciona".
+---
 
-### Estructura del código
+## Licencia y Uso Académico
 
-```
-app.py                              lanza el servidor web
-clonvoz/
-  config.py                         parámetros de XTTS-v2, en un solo lugar
-  audio.py                          carga y validación del .wav
-  caracteristicas.py                las cuatro características (DSP puro)
-  graficas.py                       render de las figuras a PNG
-  analisis.py                       orquestación, tiempos e identificador de corrida
-  cli.py                            línea de comandos
-  web/servidor.py                   Flask: GET / y POST /api/analizar
-  web/templates/, web/static/       interfaz
-scripts/verificar_compatibilidad_mel.py
-```
-
-`clonvoz/caracteristicas.py` no importa Flask ni matplotlib: el procesamiento se
-puede usar y probar sin levantar la aplicación.
-
-## Etapa 2 — Perceiver e identidad de voz
-
-La misma página incorpora un botón **Analizar etapa 2**. Usa la referencia
-grabada o cargada arriba, después de ejecutar **Analizar** en la etapa 1.
-La etapa 2 recibe exactamente el mel completo calculado en ese análisis.
-No vuelve a enviar el WAV ni recalcula el mel. Conserva el mismo identificador.
-Confirma el consentimiento antes de grabar o procesar las voces.
-
-Para comparar: analiza la primera referencia en etapa 1, pulsa **Conservar
-análisis para comparar**, carga otra referencia arriba y ejecuta su etapa 1.
-Después pulsa **Analizar etapa 2**: ambas entradas serán mels ya calculados.
-Al cambiar de referencia el botón de etapa 2 se bloquea hasta terminar etapa 1.
-
-Esta etapa muestra pesos **reales** de atención y el condicionamiento de voz y
-estilo `[32, 1024]`. No genera texto ni audio. No realiza identificación biométrica.
-La etapa 1 sigue disponible aunque falte el checkpoint de la etapa 2.
-
-### Entorno separado
-
-Para mantener intacto el entorno anterior, se proporciona
-`requirements-etapa2.txt`. No mezcles ambos archivos de dependencias en un mismo
-entorno. Estos comandos instalan la variante CPU de PyTorch:
-
-El entorno separado fue verificado en esta computadora con Python 3.10.9 y
-PyTorch 2.8.0 CPU. La instalación anterior de la etapa 1 no se reemplaza.
-
-PyTorch se queda en 2.8.0 por una razón concreta: desde la versión 2.9,
-coqui-tts exige además el paquete `torchcodec` y aborta la importación si no
-está (`TTS/__init__.py`). Quedarse en 2.8.0 evita esa dependencia. Como este es
-el entorno con el que se ejecuta la aplicación completa, es el que manda;
-`requirements.txt` queda como registro del entorno con el que se construyó la
-etapa 1.
-
-```powershell
-python -m venv .venv-etapa2
-.\.venv-etapa2\Scripts\python.exe -m pip install --upgrade pip
-.\.venv-etapa2\Scripts\python.exe -m pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cpu
-.\.venv-etapa2\Scripts\python.exe -m pip install -r requirements-etapa2.txt
-```
-
-Para GPU se necesita una instalación de PyTorch/torchaudio compatible con CUDA;
-el entorno CPU anterior no habilita CUDA por sí mismo. El código selecciona GPU
-si está disponible y permite forzar CPU con `$env:CLONVOZ_DISPOSITIVO = "cpu"`.
-
-### Pesos oficiales
-
-Lee la [ficha y licencia del modelo](https://huggingface.co/coqui/XTTS-v2).
-El proyecto y estos pesos se usan con fines académicos conforme a CPML.
-La descarga ocupa aproximadamente 1.9 GB y se hace una sola vez:
-
-```powershell
-.\.venv-etapa2\Scripts\python.exe scripts/descargar_modelo_etapa2.py --uso-academico
-.\.venv-etapa2\Scripts\python.exe app.py
-```
-
-Abre http://127.0.0.1:5000. La descarga usa la revisión oficial `v2.0.2`.
-Si ya tienes el modelo, coloca `config.json` y `model.pth` en
-`modelos/xtts_v2/`, o indica su carpeta con `$env:CLONVOZ_MODELO = "C:\ruta\modelo"`.
-No se descarga nada al abrir la web. El modelo se carga al ejecutar la etapa 2.
-Los pesos y el entorno están excluidos de Git.
-
-### Qué significan las gráficas
-
-1. La etapa 1 carga, valida y analiza el WAV como antes, mostrando sus cuatro
-   gráficas. El servidor conserva solo su mel `[80,T]` y metadatos, sin muestras WAV.
-2. El navegador recibe `id_corrida`. Al pulsar etapa 2 envía ese identificador,
-   no el audio ni el tensor. El servidor recupera el mel de la misma sesión.
-3. `identidad_desde_mel` entrega esa matriz a `procesar_mel`. Se divide por
-   `mel_stats` del checkpoint, sin modificar la matriz original de etapa 1.
-4. Los módulos oficiales `ConditioningEncoder` y `PerceiverResampler` procesan
-   el mel completo y producen `[32,1024]`. La atención al audio tiene `[32,T]`.
-5. Un hook observa `conditioning_perceiver.layers[-1][0].attend.attn_dropout`.
-   En evaluación captura las probabilidades usadas sin cambiar el cálculo.
-   Se muestra el promedio de las ocho cabezas de la última capa.
-
-La atención completa es `[8,32,32+T]`: las primeras 32 columnas corresponden a
-las propias consultas. El mapa muestra solo la parte del audio, sin renormalizar.
-Por eso sus filas no tienen por qué sumar uno.
-
-**Este prototipo utiliza el mel completo, como indica el documento de etapas.**
-No reproduce el promedio por fragmentos de `get_gpt_cond_latents` del flujo de
-síntesis. Su equivalencia se comprueba contra `get_style_emb` oficial sobre el
-mismo mel completo. Esa diferencia es intencional y no altera la etapa 1.
-
-Al comparar referencias, ambos mapas usan las mismas escalas de color. Las
-diferencias pueden depender del hablante, contenido y estilo; no son una prueba
-de identificación de personas.
-
-El puente conserva hasta ocho mels durante diez minutos. Cada entrada pertenece
-a una sesión, se libera al descartarla o reemplazarla (excepto si se conserva
-para comparar), y caduca automáticamente aunque no haya nuevas peticiones.
-La página intenta liberarlos al cerrarse; el temporizador cubre cierres bruscos.
-Tras caducar, reiniciar el servidor o desalojar una entrada por el límite, la web
-pide ejecutar de nuevo etapa 1 y no recalcula silenciosamente el audio.
-
-### Terminal y exportación voluntaria
-
-```powershell
-.\.venv-etapa2\Scripts\python.exe -m clonvoz.cli_identidad audios/muestra_hablante.wav --consentimiento
-.\.venv-etapa2\Scripts\python.exe -m clonvoz.cli_identidad audios/muestra_hablante.wav --consentimiento --salida salidas/etapa2
-```
-
-La CLI encadena internamente etapa 1 y etapa 2, pasando el mel sin repetirlo.
-Sin `--salida` solo imprime el resumen. Con esa opción guarda `identidad.npy`,
-`atencion.npy`, `atencion_consultas.npy`, `identidad.json` y los mapas en ambos
-temas. El JSON contiene el intervalo completo, formas, identificador y tiempos. En la web
-no se guardan audios ni resultados en disco; el servidor conserva los pesos
-y el mel temporal necesario para comunicar las etapas. Los tensores completos no se envían al navegador.
-
-### Archivos nuevos y requisitos cubiertos
-
-| Archivo | Responsabilidad |
-|---|---|
-| `clonvoz/identidad.py` | Carga selectiva de pesos, hooks y procesamiento |
-| `clonvoz/graficas_identidad.py` | Mapas y escalas compartidas |
-| `clonvoz/web/identidad.py` | Codificación por identificador y descarte |
-| `clonvoz/web/memoria.py` | Puente temporal de mels entre etapas y sesiones |
-| `clonvoz/web/static/js/identidad.js` | Ejecución y comparación en la página |
-| `clonvoz/cli_identidad.py` | Ejecución independiente de Flask |
-| `scripts/descargar_modelo_etapa2.py` | Preparación del checkpoint |
-| `scripts/verificar_etapa2.py` | Verificación con los pesos reales |
-| `tests/test_identidad.py` | Reutilización del mel, sesiones, caducidad y regresión de etapa 1 |
-
-Se conserva RF-01–04; se aplica RF-08, la parte Perceiver de RF-11 y RF-20.
-Se reutiliza el diseño para RNF-04–07, RNF-09–10; se implementan CPU/GPU
-(RNF-11), consentimiento (RNF-12), retención limitada (RNF-13), uso académico
-(RNF-14), independencia del servidor (RNF-15) y versiones fijadas (RNF-16).
-El punto de captura documentado arriba cubre la trazabilidad del módulo de
-RNF-17; todavía no se emiten eventos WebSocket. El resto de la inferencia,
-streaming y modo grabado se pospone a sus etapas.
-
-### Comprobación
-
-```powershell
-.\.venv-etapa2\Scripts\python.exe -m unittest discover -s tests -v
-.\.venv-etapa2\Scripts\python.exe scripts/verificar_etapa2.py
-```
-
-La segunda comprobación requiere pesos reales y compara la salida instrumentada
-con los mismos módulos sin hooks. Usa una señal artificial explícita: comprueba
-el cálculo y la captura, no la calidad perceptual con voces humanas.
-
-La verificación comprueba que etapa 2 no recalcula el mel, conserva el
-identificador y coincide con `get_style_emb` oficial sobre el mel completo.
-También se comprueban caducidad, aislamiento entre sesiones, descarte,
-comparación de dos señales artificiales en la web y exportación desde la CLI.
-La ejecución en GPU y la comparación con grabaciones de hablantes reales quedan
-pendientes de comprobar en el equipo y con las referencias correspondientes.
-
-Código de referencia: [GPT y módulos de condicionamiento](https://github.com/idiap/coqui-ai-TTS/blob/v0.27.5/TTS/tts/layers/xtts/gpt.py),
-[Perceiver y atención](https://github.com/idiap/coqui-ai-TTS/blob/v0.27.5/TTS/tts/layers/xtts/perceiver_encoder.py),
-[normalización y fragmentos](https://github.com/idiap/coqui-ai-TTS/blob/v0.27.5/TTS/tts/models/xtts.py).
-
-### Cómo leer las nuevas vistas de etapa 2
-
-Se observan las dos capas del Perceiver sin cambiar sus operaciones. Cada mapa
-promedia ocho cabezas y muestra atención al audio; el pie informa cuánto peso
-reciben el audio y las propias consultas. La escala de color PowerNorm(0.4)
-revela pesos pequeños sin renormalizarlos. No se impone un mínimo artificial
-al máximo de la escala. Si todos los pesos al audio son cero, se muestra un
-mensaje en lugar de un mapa negro. Esto no demuestra que otras capas no usaron
-el audio. Las referencias comparadas comparten escala dentro de cada vista.
-
-La vista principal del condicionamiento muestra cosenos entre las 32 consultas,
-no similitud de personas ni calidad de clonación. Las consultas nulas no tienen
-coseno definido. Dos detalles desplegables muestran las diferencias respecto a
-la media por dimensión y la matriz original. Restar la media solo afecta esa
-vista: identidad.npy y los vectores usados por las siguientes etapas permanecen
-intactos. No se calcula un porcentaje de parecido entre hablantes.
-
-scripts/verificar_compatibilidad_mel.py sigue comprobando el log-mel contra
-wav_to_mel_cloning. scripts/verificar_etapa2.py comprueba además la normalización,
-la igualdad con la salida oficial y la captura de ambas capas sin dejar hooks.
+Los pesos preentrenados de XTTS-v2 se distribuyen bajo la licencia **Coqui Public Model License (CPML)** y su uso en este proyecto está destinado exclusivamente a **fines académicos y de investigación**. Revisa la [ficha del modelo en Hugging Face](https://huggingface.co/coqui/XTTS-v2) para más detalles.
