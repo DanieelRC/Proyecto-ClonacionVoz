@@ -1,8 +1,7 @@
 ## Requisitos del Sistema
 
 - **Sistema Operativo:** Windows 10/11 (probado en Windows 64-bit).
-- **Versión de Python:** **Python 3.10 o 3.11**. La etapa 1 se probó con
-  Python 3.11.9; el entorno de la etapa 2, con Python 3.10.9.
+- **Versión de Python:** **Python 3.10 o 3.11** (probado con 3.10.9 y 3.11.9).
 - **Audio de referencia:** Archivo en formato `.wav` (por ejemplo, `muestra_hablante.wav`).
 
 ## Instalación y Configuración
@@ -28,14 +27,24 @@ python -m venv .venv
 
 ### 3. Instalar las dependencias exactas
 
-Para instalar todas las versiones probadas y compatibles:
+Un solo archivo cubre las etapas 1, 2 y 3:
 
 ```powershell
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-La etapa 1 no necesita ninguna dependencia adicional: `librosa`, `matplotlib`,
-`soundfile`, `torchaudio` y `Flask` ya están fijados en `requirements.txt`.
+Instala la variante CPU de PyTorch 2.8.0. PyTorch se queda en esa versión por
+una razón concreta: desde la 2.9, coqui-tts exige además el paquete `torchcodec`
+y aborta la importación si no está (`TTS/__init__.py`).
+
+Si el entorno viene de una instalación anterior y `import TTS` falla por
+Coqpit, quita el paquete original y reinstala el fork:
+
+```powershell
+pip uninstall -y coqpit
+pip install --force-reinstall --no-deps coqpit-config==0.2.5
+```
 
 ---
 
@@ -122,31 +131,12 @@ Esta etapa muestra pesos **reales** de atención y el condicionamiento de voz y
 estilo `[32, 1024]`. No genera texto ni audio. No realiza identificación biométrica.
 La etapa 1 sigue disponible aunque falte el checkpoint de la etapa 2.
 
-### Entorno separado
+### Entorno
 
-Para mantener intacto el entorno anterior, se proporciona
-`requirements-etapa2.txt`. No mezcles ambos archivos de dependencias en un mismo
-entorno. Estos comandos instalan la variante CPU de PyTorch:
-
-El entorno separado fue verificado en esta computadora con Python 3.10.9 y
-PyTorch 2.8.0 CPU. La instalación anterior de la etapa 1 no se reemplaza.
-
-PyTorch se queda en 2.8.0 por una razón concreta: desde la versión 2.9,
-coqui-tts exige además el paquete `torchcodec` y aborta la importación si no
-está (`TTS/__init__.py`). Quedarse en 2.8.0 evita esa dependencia. Como este es
-el entorno con el que se ejecuta la aplicación completa, es el que manda;
-`requirements.txt` queda como registro del entorno con el que se construyó la
-etapa 1.
-
-```powershell
-python -m venv .venv-etapa2
-.\.venv-etapa2\Scripts\python.exe -m pip install --upgrade pip
-.\.venv-etapa2\Scripts\python.exe -m pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cpu
-.\.venv-etapa2\Scripts\python.exe -m pip install -r requirements-etapa2.txt
-```
+Se usa el mismo entorno `.venv` de la instalación; no hace falta uno aparte.
 
 Para GPU se necesita una instalación de PyTorch/torchaudio compatible con CUDA;
-el entorno CPU anterior no habilita CUDA por sí mismo. El código selecciona GPU
+la instalación CPU no habilita CUDA por sí mismo. El código selecciona GPU
 si está disponible y permite forzar CPU con `$env:CLONVOZ_DISPOSITIVO = "cpu"`.
 
 ### Pesos oficiales
@@ -156,8 +146,8 @@ El proyecto y estos pesos se usan con fines académicos conforme a CPML.
 La descarga ocupa aproximadamente 1.9 GB y se hace una sola vez:
 
 ```powershell
-.\.venv-etapa2\Scripts\python.exe scripts/descargar_modelo_etapa2.py --uso-academico
-.\.venv-etapa2\Scripts\python.exe app.py
+python scripts/descargar_modelo_etapa2.py --uso-academico
+python app.py
 ```
 
 Abre http://127.0.0.1:5000. La descarga usa la revisión oficial `v2.0.2`.
@@ -203,8 +193,8 @@ pide ejecutar de nuevo etapa 1 y no recalcula silenciosamente el audio.
 ### Terminal y exportación voluntaria
 
 ```powershell
-.\.venv-etapa2\Scripts\python.exe -m clonvoz.cli_identidad audios/muestra_hablante.wav --consentimiento
-.\.venv-etapa2\Scripts\python.exe -m clonvoz.cli_identidad audios/muestra_hablante.wav --consentimiento --salida salidas/etapa2
+python -m clonvoz.cli_identidad audios/muestra_hablante.wav --consentimiento
+python -m clonvoz.cli_identidad audios/muestra_hablante.wav --consentimiento --salida salidas/etapa2
 ```
 
 La CLI encadena internamente etapa 1 y etapa 2, pasando el mel sin repetirlo.
@@ -239,8 +229,8 @@ streaming y modo grabado se pospone a sus etapas.
 ### Comprobación
 
 ```powershell
-.\.venv-etapa2\Scripts\python.exe -m unittest discover -s tests -v
-.\.venv-etapa2\Scripts\python.exe scripts/verificar_etapa2.py
+python -m unittest discover -s tests -v
+python scripts/verificar_etapa2.py
 ```
 
 La segunda comprobación requiere pesos reales y compara la salida instrumentada
@@ -315,10 +305,10 @@ El script de descarga ahora baja también `vocab.json` y `dvae.pth`; los que ya
 existan se conservan:
 
 ```powershell
-.\.venv-etapa2\Scripts\python.exe scripts/descargar_modelo_etapa2.py --uso-academico
-.\.venv-etapa2\Scripts\python.exe app.py
-.\.venv-etapa2\Scripts\python.exe -m clonvoz.cli_generacion audios/muestra_hablante.wav --texto "Hola, ¿cómo estás?" --consentimiento
-.\.venv-etapa2\Scripts\python.exe -m clonvoz.cli_generacion audios/muestra_hablante.wav --texto "Hola" --consentimiento --salida salidas/etapa3
+python scripts/descargar_modelo_etapa2.py --uso-academico
+python app.py
+python -m clonvoz.cli_generacion audios/muestra_hablante.wav --texto "Hola, ¿cómo estás?" --consentimiento
+python -m clonvoz.cli_generacion audios/muestra_hablante.wav --texto "Hola" --consentimiento --salida salidas/etapa3
 ```
 
 La CLI encadena las etapas 1 a 3. Con `--salida` guarda `tokens.npy`,
@@ -342,8 +332,8 @@ en cargarse la primera vez. El modo `eager` es algo más lento que SDPA.
 ### Comprobación
 
 ```powershell
-.\.venv-etapa2\Scripts\python.exe -m unittest discover -s tests -v
-.\.venv-etapa2\Scripts\python.exe scripts/verificar_etapa3.py
+python -m unittest discover -s tests -v
+python scripts/verificar_etapa3.py
 ```
 
 La segunda requiere los pesos reales. Ejecuta `Xtts.inference` oficial hasta

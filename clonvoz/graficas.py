@@ -11,7 +11,9 @@ import matplotlib
 matplotlib.use("Agg")
 
 import numpy as np
+from matplotlib import colormaps
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.figure import Figure
 
 from . import config
@@ -51,7 +53,15 @@ TEMAS = {
     },
 }
 
-MAPA_CALOR = "magma"
+# Fracción de magma usada en el tema claro: se descarta el crema final, que se funde con el blanco.
+RECORTE_CLARO = 0.88
+# En claro la escala va invertida (bajo = claro, alto = casi negro) para contrastar con el fondo.
+MAPAS_CALOR = {
+    "claro": LinearSegmentedColormap.from_list(
+        "magma_r_recortada", colormaps["magma"](np.linspace(RECORTE_CLARO, 0.0, 256))
+    ),
+    "oscuro": colormaps["magma"],
+}
 COLUMNAS_ENVOLVENTE = 1400
 DPI = 110
 ANCHO_COMPLETO = 10.0
@@ -185,7 +195,7 @@ def grafica_espectrograma(analisis: Analisis, tema_nombre: str = "claro") -> byt
         analisis.espectrograma_db,
         origin="lower",
         aspect="auto",
-        cmap=MAPA_CALOR,
+        cmap=MAPAS_CALOR[tema_nombre],
         vmin=-RANGO_DINAMICO_DB,
         vmax=0.0,
         extent=(0.0, analisis.audio.duracion_s, 0.0, config.SR / 2),
@@ -224,7 +234,7 @@ def grafica_mel(analisis: Analisis, tema_nombre: str = "claro") -> bytes:
         analisis.mel,
         origin="lower",
         aspect="auto",
-        cmap=MAPA_CALOR,
+        cmap=MAPAS_CALOR[tema_nombre],
         extent=(0.0, analisis.audio.duracion_s, 0.0, canales),
         interpolation="nearest",
     )

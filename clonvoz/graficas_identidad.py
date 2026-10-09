@@ -6,7 +6,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from matplotlib.colors import PowerNorm
 from matplotlib import colormaps
-from .graficas import TEMAS, FAMILIA, TAMANOS
+from .graficas import TEMAS, FAMILIA, TAMANOS, MAPAS_CALOR
 from . import config
 
 PIXELES_POR_FRAME = 2
@@ -93,7 +93,7 @@ def renderizar_identidades(resultados):
                              color=tema['texto'], fontsize=TAMANOS['etiqueta'], wrap=True)
                     eje.set_axis_off()
                 else:
-                    colores = colormaps['magma' if es_atencion else 'RdBu_r'].copy()
+                    colores = (MAPAS_CALOR[tema_nombre] if es_atencion else colormaps['RdBu_r']).copy()
                     colores.set_bad('#808080')
                     opciones = {'cmap': colores}
                     if es_atencion:

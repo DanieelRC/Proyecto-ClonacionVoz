@@ -36,17 +36,27 @@
   const PARADAS = [[0, 0, 0, 4], [0.13, 28, 16, 68], [0.25, 79, 18, 123], [0.38, 129, 37, 129],
     [0.5, 181, 54, 122], [0.63, 229, 80, 100], [0.75, 251, 135, 97], [0.88, 254, 194, 135],
     [1, 252, 253, 191]];
-  const PALETA = new Uint8ClampedArray(256 * 4);
-  for (let q = 0; q < 256; q++) {
-    const t = Math.pow(q / 255, 0.4);
-    let k = 1;
-    while (k < PARADAS.length - 1 && PARADAS[k][0] < t) k++;
-    const [t0, ...a] = PARADAS[k - 1];
-    const [t1, ...b] = PARADAS[k];
-    const f = (t - t0) / (t1 - t0);
-    for (let c = 0; c < 3; c++) PALETA[q * 4 + c] = a[c] + (b[c] - a[c]) * f;
-    PALETA[q * 4 + 3] = 255;
+  function construirPaleta(posicion) {
+    const paleta = new Uint8ClampedArray(256 * 4);
+    for (let q = 0; q < 256; q++) {
+      const t = posicion(Math.pow(q / 255, 0.4));
+      let k = 1;
+      while (k < PARADAS.length - 1 && PARADAS[k][0] < t) k++;
+      const [t0, ...a] = PARADAS[k - 1];
+      const [t1, ...b] = PARADAS[k];
+      const f = (t - t0) / (t1 - t0);
+      for (let c = 0; c < 3; c++) paleta[q * 4 + c] = a[c] + (b[c] - a[c]) * f;
+      paleta[q * 4 + 3] = 255;
+    }
+    return paleta;
   }
+  // En claro la escala va invertida y sin el crema final (0.88), igual que MAPAS_CALOR en graficas.py.
+  const PALETAS = {
+    claro: construirPaleta((t) => 0.88 * (1 - t)),
+    oscuro: construirPaleta((t) => t),
+  };
+  const paletaActual = () =>
+    PALETAS[document.documentElement.getAttribute("data-tema")] || PALETAS.claro;
 
   const color = (nombre) => getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
 
@@ -186,6 +196,22 @@
     });
   }
 
+  function pintarFila(i, paso, fila, paleta) {
+    const n = fila.q.length;
+    if (!n) return;
+    const imagen = new ImageData(n, 1);
+    for (let x = 0; x < n; x++) imagen.data.set(paleta.subarray(fila.q[x] * 4, fila.q[x] * 4 + 4), x * 4);
+    vista.mapas[i].getContext("2d").putImageData(imagen, 0, paso);
+  }
+
+  // La paleta depende del tema: al cambiarlo se repintan las filas ya recibidas.
+  function repintarMapas() {
+    if (!vista) return;
+    const paleta = paletaActual();
+    vista.pasos.forEach((paso) => paso.filas.forEach((fila, i) => pintarFila(i, paso.paso, fila, paleta)));
+    programarDibujo();
+  }
+
   function agregarPaso(evento) {
     const inicio = vista.inicio;
     const filas = inicio.capas.map((capa) => {
@@ -195,13 +221,8 @@
     vista.pasos.push({ paso: evento.paso, token: evento.token, probabilidad: evento.probabilidad,
       ms: evento.ms, filas });
 
-    filas.forEach(function (fila, i) {
-      const n = fila.q.length;
-      if (!n) return;
-      const imagen = new ImageData(n, 1);
-      for (let x = 0; x < n; x++) imagen.data.set(PALETA.subarray(fila.q[x] * 4, fila.q[x] * 4 + 4), x * 4);
-      vista.mapas[i].getContext("2d").putImageData(imagen, 0, evento.paso);
-    });
+    const paleta = paletaActual();
+    filas.forEach((fila, i) => pintarFila(i, evento.paso, fila, paleta));
 
     const caja = elemento("tokens-audio");
     caja.querySelector(".token--reciente")?.classList.remove("token--reciente");
@@ -361,7 +382,7 @@
       pieza + "».";
   }
 
-  new MutationObserver(programarDibujo).observe(document.documentElement,
+  new MutationObserver(repintarMapas).observe(document.documentElement,
     { attributes: true, attributeFilter: ["data-tema"] });
   window.addEventListener("resize", programarDibujo);
 
