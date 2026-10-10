@@ -1,7 +1,8 @@
-"""Almacenamiento temporal en memoria del mel y de lo que producen las etapas 2 y 3.
+"""Almacenamiento temporal en memoria del mel y de lo que producen las etapas 2 a 4.
 
-Nunca se guarda el WAV ni sus muestras: solo el mel, la identidad [32, 1024] y
-los tokens de audio, con la misma caducidad para todo.
+Nunca se guarda el WAV ni sus muestras: solo el mel, la identidad [32, 1024], los
+tokens de audio, el vector de hablante [512] y los latentes, con la misma
+caducidad para todo.
 """
 
 from collections import OrderedDict
@@ -22,6 +23,9 @@ class MelGuardado:
     identidad: np.ndarray | None = None
     tokens_audio: np.ndarray | None = None
     texto_generado: str | None = None
+    texto_ids: list | None = None
+    embedding_hablante: np.ndarray | None = None
+    latentes: np.ndarray | None = None
 
 
 class MemoriaMel:
@@ -46,6 +50,7 @@ class MemoriaMel:
                 anterior.cancel()
             self.entradas[entrada.id_corrida] = (entrada, temporizador)
             temporizador.start()
+        return entrada
 
     def obtener(self, propietario, identificador):
         """Recupera la entrada correspondiente al propietario e identificador."""

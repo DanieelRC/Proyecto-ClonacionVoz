@@ -41,6 +41,7 @@ TEMAS = {
         "texto_suave": "#52606d",
         "rejilla": "#e5e9ef",
         "audio": "#2a78d6",
+        "salida": "#008300",
         "umbral": "#8794a7",
     },
     "oscuro": {
@@ -49,6 +50,7 @@ TEMAS = {
         "texto_suave": "#9aa8bd",
         "rejilla": "#22304a",
         "audio": "#3987e5",
+        "salida": "#008300",
         "umbral": "#7d8ca3",
     },
 }

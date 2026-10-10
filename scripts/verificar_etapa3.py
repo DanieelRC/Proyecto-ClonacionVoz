@@ -61,8 +61,9 @@ def main():
 
     inicio = time.perf_counter()
     generador = GeneradorTokens(args.modelo, "cpu")
-    print(f"GPT-2 cargado en {time.perf_counter() - inicio:.1f} s; capas observadas "
-          f"{[c + 1 for c in generador.capas]} de {len(generador.gpt.gpt.h)}; tope {generador.tope}.")
+    print(f"GPT-2 cargado en {time.perf_counter() - inicio:.1f} s; filas completas de las capas "
+          f"{[c + 1 for c in generador.capas]} y reparto por cabeza de las {len(generador.gpt.gpt.h)}; "
+          f"tope {generador.tope}.")
 
     ids, piezas = generador.tokenizar(args.texto)
     print("Fichas:", " ".join(piezas))
@@ -82,6 +83,9 @@ def main():
             for fila in paso.atencion.values():
                 assert fila.shape == (resultado.prefijo + paso.paso,)
                 np.testing.assert_allclose(fila.sum(), 1, atol=1e-4)
+            # Todas las capas y cabezas: cuánto peso va a voz, texto y audio.
+            assert paso.zonas.shape == (len(capas), generador.gpt.gpt.config.n_head, 3)
+            np.testing.assert_allclose(paso.zonas.sum(axis=2), 1, atol=1e-3)
 
         torch.manual_seed(semilla)
         with torch.inference_mode():

@@ -220,6 +220,21 @@
     resultados.appendChild(columna);
   }
 
+  // La corrida completa (etapa 5) entrega aquí la misma respuesta que /api/identidad.
+  window.Clonvoz = window.Clonvoz || {};
+  window.Clonvoz.etapa2 = {
+    mostrar: function (datos, enVivo) {
+      invalidarResultados();
+      datos.resultados.forEach(mostrarResultado);
+      resultados.classList.toggle("comparacion-identidad--doble", datos.resultados.length === 2);
+      mensaje.textContent = enVivo ? "Etapa 2 terminada dentro de la corrida completa." :
+        "Etapa 2 de una corrida guardada.";
+      if (enVivo && referencia)
+        document.dispatchEvent(new CustomEvent("etapa2-completada", { detail: { id_corrida: referencia.id_corrida } }));
+      actualizarControles();
+    },
+  };
+
   boton.addEventListener("click", async function () {
     if (!referencia || !elemento("consentimiento").checked) return;
     invalidarResultados();

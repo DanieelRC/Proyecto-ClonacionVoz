@@ -30,6 +30,10 @@ def crear_app() -> Flask:
     app.register_blueprint(crear_rutas_identidad(memoria))
     from .generacion import crear_rutas_generacion
     app.register_blueprint(crear_rutas_generacion(memoria))
+    from .sintesis import crear_rutas_sintesis
+    app.register_blueprint(crear_rutas_sintesis(memoria))
+    from .pipeline import crear_rutas_pipeline
+    app.register_blueprint(crear_rutas_pipeline(app, memoria))
 
     app.config["MAX_CONTENT_LENGTH"] = config.TAMANO_MAXIMO_BYTES
     app.json.sort_keys = False

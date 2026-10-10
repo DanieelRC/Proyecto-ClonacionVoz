@@ -27,7 +27,7 @@ python -m venv .venv
 
 ### 3. Instalar las dependencias exactas
 
-Un solo archivo cubre las etapas 1, 2 y 3:
+Un solo archivo cubre las etapas 1 a 5:
 
 ```powershell
 python -m pip install --upgrade pip
@@ -275,9 +275,9 @@ La sección **Etapa 3** de la misma página toma los 32 vectores de la etapa 2 y
 un texto en español (hasta 239 caracteres) y muestra en vivo cómo el GPT-2 de
 XTTS-v2 genera tokens de audio de uno en uno: las fichas BPE del texto, cada
 token con su probabilidad, el progreso sobre el tope de 602 y el mapa de
-atención de las capas 1, 15 y 30. Todavía no hay voz final: el resultado es la
-secuencia. Requiere haber ejecutado la etapa 2 para la referencia actual; la
-etapa 3 usa esos vectores y no los recalcula.
+atención de las capas 1, 15 y 30. El resultado de esta etapa es la secuencia; la
+voz la da la etapa 4. Requiere haber ejecutado la etapa 2 para la referencia
+actual; la etapa 3 usa esos vectores y no los recalcula.
 
 No se reimplementa el modelo: se llama a `GPT.generate` oficial con un
 streamer, un criterio de parada (para **Detener**) y un procesador de logits
@@ -286,6 +286,34 @@ los pesos; los tokens son los mismos. La transmisión es por Server-Sent Events.
 
 **Guardar corrida** descarga los eventos en JSON; **Reproducir corrida** los
 vuelve a animar sin servidor ni modelo. Nada se guarda en el servidor.
+
+### Interpretabilidad: qué se ve y qué no prueba
+
+**La atención no es una explicación.** Que una posición reciba mucho peso no
+prueba que haya causado la decisión: es un indicio descriptivo. En la literatura
+el debate sigue abierto (Jain y Wallace, 2019, frente a Wiegreffe y Pinter,
+2019) y este proyecto no lo resuelve; lo reconoce y añade una medida distinta.
+
+| Limitación del mapa en vivo | Qué se hizo |
+|---|---|
+| Atención no es causa | **Intervenciones.** Sobre la secuencia ya generada se anula la atención de los tokens de audio hacia la voz o hacia el texto (en todas las capas y por tercios) y se mide cuánto cae el log p del token elegido, la divergencia KL y en qué fracción de pasos cambia el token más probable. La página lo muestra junto a la atención que recibía esa zona. También se puede apagar, una a una, las cabezas de una capa. |
+| Se promedian las cabezas | Los ganchos guardan, **por cabeza**, cuánto peso va a la voz, al texto y al audio. La rejilla lo muestra sin promediar, y el mapa completo de cualquier cabeza se pide con un clic. |
+| Solo 3 de 30 capas | La rejilla cubre **las 30 capas** en vivo (30 × 16 cabezas × 3 zonas, unos 2 KB por paso). El mapa completo existe para cualquier capa. Las tres pestañas siguen siendo una muestra. |
+| Escala relativa | El reparto por zonas y el mapa por cabeza usan **una sola escala**. El mapa en vivo tiene un conmutador de escala absoluta (0 a 1); por omisión sigue escalando cada fila a su máximo, que revela más detalle. |
+| Modo `eager` | Sigue siendo necesario. `verificar_etapa3.py` comprueba que los tokens son idénticos. |
+| Observar no cambia la generación | Sigue siendo cierto: los ganchos son pasivos. Las intervenciones ocurren después y no tocan los tokens ni el audio. |
+
+Las intervenciones usan `head_mask`, el argumento estándar de GPT-2 que
+multiplica los pesos de atención después del softmax, sobre una pasada con
+*teacher forcing* del mismo `gpt_inference` oficial. `verificar_etapa4.py`
+comprueba que esa pasada ve la misma atención que la generación en vivo
+(diferencia máxima del orden de 1e-6).
+
+Lo que estas medidas **no** dicen: bloquear atención deja al modelo en una
+situación que no vio al entrenar, así que mide dependencia, no una
+"importancia" única; dos zonas redundantes pueden parecer poco necesarias por
+separado; y la probabilidad que se compara es la del modelo antes de los
+filtros de muestreo (temperatura, top-k, top-p y penalización por repetición).
 
 ### Escuchar por fases
 
@@ -296,8 +324,8 @@ metálico y apagado a propósito: es la representación intermedia, no la voz
 final. La etapa 2 no tiene fase audible. Las fases 3 y 4 necesitan `dvae.pth`.
 
 XTTS-v2 no usa el DVAE para sintetizar: entrega los estados ocultos del GPT al
-HiFi-GAN. Aquí el DVAE sirve para escuchar qué significan los tokens; el plan de
-la etapa 4 debe partir del camino real.
+HiFi-GAN. Aquí el DVAE sirve para escuchar qué significan los tokens; la etapa 4
+sigue el camino real.
 
 ### Archivos y ejecución
 
@@ -321,13 +349,15 @@ en cargarse la primera vez. El modo `eager` es algo más lento que SDPA.
 | Archivo | Responsabilidad |
 |---|---|
 | `clonvoz/generacion.py` | GPT-2 oficial instrumentado: tokens, probabilidad y atención |
+| `clonvoz/explicacion.py` | Atención de cualquier capa y cabeza, e intervenciones causales |
 | `clonvoz/fases.py` | Griffin-Lim y DVAE para las fases audibles |
-| `clonvoz/web/generacion.py` | `POST /api/generar` (SSE) y `POST /api/fases/audio` |
+| `clonvoz/web/generacion.py` | `POST /api/generar` (SSE), `POST /api/explicar/atencion`, `POST /api/explicar/causal` y `POST /api/fases/audio` |
 | `clonvoz/web/modelos.py` | Modelos cargados una sola vez y compartidos entre etapas |
 | `clonvoz/web/static/js/generacion.js` | Vista en vivo, mapa de atención, corridas y fases |
 | `clonvoz/cli_generacion.py` | Ejecución independiente de Flask |
 | `scripts/verificar_etapa3.py` | Verificación con los pesos reales |
 | `tests/test_generacion.py` | Generación, cancelación, SSE y fases con modelos reducidos |
+| `tests/test_explicacion.py` | Reparto por cabeza, atención recalculada e intervenciones |
 
 ### Comprobación
 
@@ -341,3 +371,124 @@ el GPT para obtener sus argumentos exactos y comprueba que la tokenización y
 los tokens (en modo determinista y con semilla) son idénticos a los de la
 etapa 3 instrumentada. También mide los milisegundos por token en `eager` y
 SDPA, y el error de ida y vuelta del DVAE.
+
+## Etapa 4 — De los tokens a la voz: DVAE y HiFi-GAN
+
+La sección **Etapa 4** convierte los tokens de la etapa 3 en audio reproducible
+a 24 000 Hz. Es la primera etapa en la que se oye la voz clonada.
+
+El documento de etapas describe el camino *tokens → DVAE → mel → HiFi-GAN*. El
+código oficial de XTTS-v2 no hace eso, y aquí se sigue el código:
+
+1. **Latentes.** El GPT-2 vuelve a leer la secuencia que generó
+   (`gpt(texto, largo, códigos, largo_esperado, cond_latents=..., return_latent=True)`)
+   y entrega sus estados ocultos: `[N, 1024]`, uno por token.
+2. **Vector de hablante.** El codificador de hablante del propio HiFi-GAN resume
+   la referencia, remuestreada a 16 kHz, en `[512]`. Necesita el WAV, que el
+   servidor no guardó: el navegador lo reenvía una vez y se comprueba que su mel
+   sea el de la referencia analizada. Después solo se conserva el vector.
+3. **HiFi-GAN.** Latentes + vector de hablante → onda.
+
+El DVAE queda como **rama didáctica**: su mel muestra qué describen los tokens.
+La página enseña tres mels con la misma escala de color: la referencia (otro
+texto: se compara timbre y rango, no contenido), el del DVAE y el de la voz que
+salió del vocoder. Los dos últimos son la misma frase y deben parecerse aunque
+el vocoder no haya leído el del DVAE; el resumen da su diferencia media.
+
+**Escuchar sin vector de hablante** es una intervención audible: los mismos
+latentes pasan otra vez por el vocoder con ese vector en cero. Lo único que
+cambia es el vector, así que la diferencia que se oye es lo que aporta.
+
+```powershell
+python app.py
+python -m clonvoz.cli_sintesis audios/muestra_hablante.wav --texto "Hola, ¿cómo estás?" --consentimiento --salida salidas/etapa4
+```
+
+La CLI escribe `voz_clonada.wav`, `tokens.npy`, `latentes.npy`, `corrida.json`,
+`causal.json` y las figuras. `--sin-explicacion` omite las intervenciones.
+
+El volumen del WAV se normaliza al escribirlo. El condicionamiento del GPT-2
+sigue siendo el mel completo de la etapa 2, no el promedio por fragmentos de
+`get_gpt_cond_latents`: con la misma identidad, el resultado es el de
+`Xtts.inference`.
+
+| Archivo | Responsabilidad |
+|---|---|
+| `clonvoz/sintesis.py` | Latentes, vector de hablante y HiFi-GAN oficiales |
+| `clonvoz/graficas_sintesis.py` | Los tres mels con escala compartida y la onda |
+| `clonvoz/web/sintesis.py` | `POST /api/sintetizar` y `POST /api/sintetizar/contraste` |
+| `clonvoz/web/static/js/sintesis.js` | Reproductor, figuras y contraste |
+| `clonvoz/cli_sintesis.py` | Corrida completa sin Flask |
+| `scripts/verificar_etapa4.py` | Comparación con `Xtts.inference` oficial |
+| `tests/test_sintesis.py` | Camino de latentes, web y contraste con modelos reducidos |
+
+## Etapa 5 — Corrida completa en tiempo real
+
+**Ejecutar todo**, arriba de la página, corre las cuatro etapas en una sola
+pasada. El diagrama de ocho bloques (audio de referencia → mel → Perceiver →
+GPT-2 → tokens → DVAE → HiFi-GAN → audio clonado) se ilumina conforme el modelo
+avanza, y cada panel de detalle se llena con los mismos datos que cuando la
+etapa se ejecuta sola. Pulsar un bloque lleva a su panel.
+
+```
+POST /api/inferencia              audio + texto -> 202 {id_corrida, ws}
+WS   /ws/corrida/<id>             un mensaje JSON por evento, en el momento en que ocurre
+GET  /api/inferencia/<id>/audio   el WAV final
+```
+
+Eventos del canal, cada uno `{tipo, t, datos}` con `t` en milisegundos desde el
+inicio: `corrida`, `bloque` (`activo`, `listo` u `omitido`, con milisegundos y
+forma del tensor), `etapa1`, `etapa2`, `inicio` / `paso` / `fin` (los de la
+etapa 3), `etapa4` (figuras y audio), `causal` y `terminada` o `error`. Nunca
+viaja un tensor completo. Enviar `{"accion": "detener"}` por el canal, o cerrar
+la página, detiene el GPT-2 en el siguiente token.
+
+`clonvoz/pipeline.py` no reescribe nada: llama en orden a `analizar`,
+`identidad_desde_mel`, `GeneradorTokens.generar`, el DVAE y `Sintetizador`, y
+avisa de cada paso con una función `emitir`. No conoce Flask ni JSON; la misma
+función sirve a la CLI. El modelo corre en un hilo aparte y deja los eventos en
+un registro que el canal retransmite, así que la interfaz no se bloquea y quien
+se conecta un instante tarde los recibe desde el primero. Solo puede haber una
+corrida a la vez. Las intervenciones causales se calculan después de entregar el
+audio, para no retrasar la voz.
+
+Al terminar, la corrida queda en la memoria de la sesión como si se hubieran
+ejecutado las etapas una por una: se puede pedir el mapa de otra cabeza o el
+contraste sin vector de hablante. **Guardar corrida completa** descarga todos
+los eventos, figuras y audio incluidos; **Reproducir corrida completa** los
+vuelve a animar sin servidor ni modelo. Es la base del modo grabado de la
+etapa 6.
+
+Se añade `flask-sock` para el canal WebSocket; funciona con el servidor de
+desarrollo de Flask en modo `threaded`. La generación por SSE de la etapa 3
+(`/api/generar`) y las demás rutas por etapa se conservan.
+
+| Archivo | Responsabilidad |
+|---|---|
+| `clonvoz/pipeline.py` | Las cuatro etapas en una corrida que emite eventos |
+| `clonvoz/web/pipeline.py` | HTTP, registro de corridas y canal WebSocket |
+| `clonvoz/web/static/js/pipeline.js` | Diagrama en vivo, reparto a los paneles, guardar y reproducir |
+| `tests/test_pipeline.py` | Orden de eventos, cancelación y un servidor real con WebSocket |
+
+### Comprobación de las etapas 4 y 5
+
+```powershell
+python -m unittest discover -s tests -v
+python scripts/verificar_etapa4.py
+```
+
+La segunda requiere los pesos reales y unos 5 GB de memoria. Carga `Xtts` por el
+camino oficial y comprueba que el vector de hablante, los latentes y la onda de
+la etapa 4 son los de `Xtts.inference` (en modo determinista y con semilla), que
+la atención recalculada coincide con la observada en vivo y cuánto tardan las
+intervenciones. Usa una señal artificial: comprueba el cálculo, no la calidad
+perceptual. En la CPU de desarrollo (6 hilos) una frase corta tarda alrededor de
+un minuto de principio a fin: unos 110 ms por token en el GPT-2, el vocoder a la
+mitad del tiempo real y unos 20 a 40 s las intervenciones.
+
+Al redirigir la salida de los scripts a un archivo en Windows, define
+`$env:PYTHONIOENCODING = "utf-8"`: las fichas BPE usan el carácter `␣`.
+
+La calidad de la clonación con grabaciones de hablantes reales y la ejecución en
+GPU quedan pendientes de comprobar en el equipo y con las referencias
+correspondientes.

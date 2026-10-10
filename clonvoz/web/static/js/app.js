@@ -513,6 +513,30 @@
     }
   }
 
+  // La corrida completa (etapa 5) pinta este panel con los mismos datos que /api/analizar.
+  window.Clonvoz = window.Clonvoz || {};
+  window.Clonvoz.referencia = function () {
+    return estado.wav ? { wav: estado.wav, nombre: estado.nombre || "referencia.wav" } : null;
+  };
+  window.Clonvoz.etapa1 = {
+    // Una respuesta pendiente de /api/analizar ya no debe pintarse encima.
+    invalidar: function () {
+      estado.revision += 1;
+      elemento("cargando").classList.add("oculto");
+      elemento("boton-analizar").disabled = !estado.wav;
+      document.dispatchEvent(new CustomEvent("etapa1-iniciada"));
+    },
+    mostrar: function (datos, enVivo) {
+      limpiarMensajes();
+      mostrarAvisos(datos.advertencias);
+      pintarFiguras(datos.graficas, datos.formas);
+      pintarResumen(datos);
+      elemento("resultados").classList.remove("oculto");
+      // Una corrida reproducida no existe en el servidor: no habilita las etapas sueltas.
+      if (enVivo) document.dispatchEvent(new CustomEvent("etapa1-completada", { detail: datos }));
+    },
+  };
+
   // ------------------------------------------------------------------ arranque
 
   prepararTema();

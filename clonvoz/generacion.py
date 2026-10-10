@@ -3,7 +3,9 @@
 No se reimplementa la generación: se llama a `GPT.generate` oficial y se le pasan
 un streamer (recibe cada token), un criterio de parada (cancelación) y un
 procesador de logits pasivo (lee la distribución sin modificarla). Los ganchos
-en tres capas leen la atención del último token en cada paso.
+leen la atención del último token en cada paso: de todas las capas y cabezas se
+guarda cuánto peso va a la voz, al texto y al audio; de tres capas, además, la
+fila completa promediada.
 """
 
 from __future__ import annotations
@@ -39,6 +41,8 @@ class Paso:
     probabilidad: float
     atencion: dict[int, np.ndarray]
     ms: float
+    zonas: np.ndarray | None = None
+    """[capas, cabezas, 3]: peso de cada cabeza hacia voz, texto y audio. Suma 1."""
 
 
 @dataclass
@@ -85,12 +89,25 @@ def fila_cuantizada(fila) -> dict:
     return {"max": maximo, "q": base64.b64encode(q.tobytes()).decode("ascii")}
 
 
+def zonas_cuantizadas(zonas) -> str:
+    """Pesos por zona [capas, cabezas, 3] -> 8 bits en base64, en escala absoluta.
+
+    Cada terna suma 1, así que 255 siempre significa "todo el peso": los valores
+    se pueden comparar entre cabezas, capas y pasos sin guardar ningún máximo.
+    """
+    q = np.clip(np.rint(np.asarray(zonas) * 255), 0, 255).astype(np.uint8)
+    return base64.b64encode(q.tobytes()).decode("ascii")
+
+
 def evento_paso(paso) -> dict:
     """Paso -> diccionario pequeño: nunca el tensor completo (RNF-02)."""
-    return {"paso": paso.paso, "token": paso.token,
-            "probabilidad": round(paso.probabilidad, 5) if math.isfinite(paso.probabilidad) else None,
-            "ms": round(paso.ms, 1),
-            "atencion": {str(capa + 1): fila_cuantizada(fila) for capa, fila in paso.atencion.items()}}
+    evento = {"paso": paso.paso, "token": paso.token,
+              "probabilidad": round(paso.probabilidad, 5) if math.isfinite(paso.probabilidad) else None,
+              "ms": round(paso.ms, 1),
+              "atencion": {str(capa + 1): fila_cuantizada(fila) for capa, fila in paso.atencion.items()}}
+    if paso.zonas is not None:
+        evento["zonas"] = zonas_cuantizadas(paso.zonas)
+    return evento
 
 
 class GeneradorTokens:
@@ -187,6 +204,7 @@ class GeneradorTokens:
                 "prefijo": prefijo,
                 "zonas": {"voz": [0, 32], "texto": [32, 32 + len(ids) + 2], "audio": [prefijo - 1, None]},
                 "capas": [c + 1 for c in self.capas], "total_capas": len(self.gpt.gpt.h),
+                "cabezas": self.gpt.gpt.config.n_head,
                 "tope": self.tope, "determinista": determinista, "semilla": semilla,
                 "muestreo": None if determinista else self.muestreo}
 
@@ -202,7 +220,7 @@ class GeneradorTokens:
         """Genera tokens de audio a partir de la identidad [32, 1024] y un texto.
 
         1. Validar la identidad y tokenizar el texto.
-        2. Colgar ganchos en tres capas y preparar streamer, observador y parada.
+        2. Colgar ganchos en todas las capas y preparar streamer, observador y parada.
         3. Llamar a `GPT.generate` oficial; cada token se entrega a `al_paso`.
         4. Retirar los ganchos pase lo que pase.
         """
@@ -230,15 +248,21 @@ class GeneradorTokens:
                                   StoppingCriteriaList)
         from transformers.generation.streamers import BaseStreamer
 
-        ultima_fila, distribucion, pasos, tokens = {}, {}, [], []
+        ultima_fila, ultimas_zonas, distribucion, pasos, tokens = {}, {}, {}, [], []
+        fin_texto = prefijo - 1
         reloj = {"inicio": time.perf_counter()}
         reloj["ultimo"] = reloj["inicio"]
 
         def gancho(capa):
             def capturar(_modulo, _entrada, salida):
-                # [1, cabezas, consultas, claves] -> fila del último token, promedio de cabezas.
+                # [1, cabezas, consultas, claves] -> fila del último token, una por cabeza.
                 if salida[1] is not None:
-                    ultima_fila[capa] = salida[1][0, :, -1, :].float().mean(dim=0).cpu().numpy()
+                    filas = salida[1][0, :, -1, :].float()
+                    ultimas_zonas[capa] = torch.stack(
+                        (filas[:, :32].sum(dim=1), filas[:, 32:fin_texto].sum(dim=1),
+                         filas[:, fin_texto:].sum(dim=1)), dim=1).cpu().numpy()
+                    if capa in self.capas:
+                        ultima_fila[capa] = filas.mean(dim=0).cpu().numpy()
             return capturar
 
         class Observador(LogitsProcessor):
@@ -264,7 +288,9 @@ class GeneradorTokens:
                 probabilidad = distribucion.get("p")
                 paso = Paso(paso=len(tokens), token=token,
                             probabilidad=float(probabilidad[token]) if probabilidad is not None else float("nan"),
-                            atencion=dict(ultima_fila), ms=(ahora - reloj["ultimo"]) * 1000)
+                            atencion=dict(ultima_fila), ms=(ahora - reloj["ultimo"]) * 1000,
+                            zonas=(np.stack([ultimas_zonas[c] for c in sorted(ultimas_zonas)])
+                                   if ultimas_zonas else None))
                 reloj["ultimo"] = ahora
                 tokens.append(token)
                 pasos.append(paso)
@@ -282,7 +308,7 @@ class GeneradorTokens:
             argumentos.update(do_sample=True, temperature=self.muestreo["temperature"],
                               top_k=self.muestreo["top_k"], top_p=self.muestreo["top_p"])
 
-        ganchos = [self.gpt.gpt.h[c].attn.register_forward_hook(gancho(c)) for c in self.capas]
+        ganchos = [capa.attn.register_forward_hook(gancho(c)) for c, capa in enumerate(self.gpt.gpt.h)]
         try:
             torch.manual_seed(int(semilla))
             cond = torch.from_numpy(vectores)[None].to(self.dispositivo)

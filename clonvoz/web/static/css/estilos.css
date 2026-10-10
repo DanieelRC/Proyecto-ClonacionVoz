@@ -596,3 +596,85 @@ body {
 .figura__lienzo.mapa-atencion-desplazable { overflow-x: auto; max-width: 100%; }
 .mapa-atencion-desplazable .figura__imagen { width: auto; max-width: none; height: auto; }
 .mapa-atencion-desplazable:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+/* Etapa 3 ampliada: todas las cabezas, mapa por cabeza y efecto de intervenir. */
+.panel-cabezas { display: flex; flex-wrap: wrap; align-items: center; gap: var(--espacio-4) var(--espacio-6); }
+.dona-cabeza { flex: 1 1 320px; display: flex; justify-content: center; }
+.dona-cabeza canvas { display: block; }
+.rejilla-cabezas { margin-top: var(--espacio-2); overflow-x: auto; border-radius: var(--radio-sm); }
+.rejilla-cabezas canvas { display: block; cursor: pointer; }
+.rejilla-cabezas canvas:focus-visible { outline: 2px solid var(--ruta-generacion); outline-offset: 2px; }
+#mapa-cabeza { margin-top: var(--espacio-3); }
+.barras { display: grid; gap: 4px; margin-top: var(--espacio-3); font-size: var(--texto-xs);
+  font-variant-numeric: tabular-nums; }
+.barras__fila { display: grid; grid-template-columns: 6.5rem 1fr 9rem; align-items: center; gap: var(--espacio-2);
+  color: var(--texto-suave); }
+.barras__pista { height: 10px; border-radius: 5px; background: var(--superficie-hundida); overflow: hidden; }
+.barras__relleno { display: block; height: 100%; background: var(--ruta-generacion); }
+.tabla-causal { margin-top: var(--espacio-4); }
+.tabla-causal td, .tabla-causal th { text-align: left; }
+.tabla-causal tr.fila--principal td { font-weight: 600; color: var(--texto); }
+.tabla-causal td { color: var(--texto-suave); }
+#lectura-causal { margin-top: var(--espacio-3); }
+.lista-limites { margin: var(--espacio-2) 0 0; padding-left: 1.2rem; }
+.lista-limites li { margin-bottom: var(--espacio-2); }
+
+/* Etapa 4: el color de acento es el de la ruta de salida. */
+.etapa-cuatro { margin-top: var(--espacio-6); }
+.etapa-cuatro .boton--primario { border-color: var(--ruta-salida); background: var(--ruta-salida); }
+.etapa-cuatro .boton:hover:not(:disabled) { border-color: var(--ruta-salida); color: var(--ruta-salida); }
+.etapa-cuatro .boton--primario:hover:not(:disabled) { color: #ffffff; }
+.etapa-cuatro .figura { margin-top: var(--espacio-5); }
+.reproductor--salida { padding-left: var(--espacio-3); border-left: 3px solid var(--ruta-salida); }
+.etapa-cuatro audio { max-width: 100%; }
+
+/* Etapa 5: el diagrama de ocho bloques. El estado va siempre también en texto. */
+.etapa-cinco { margin-top: var(--espacio-6); }
+.diagrama { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: var(--espacio-3);
+  margin: var(--espacio-4) 0 var(--espacio-3); padding: 0; list-style: none; }
+.bloque { position: relative; min-width: 0; --ruta: var(--ruta-audio); }
+.bloque[data-ruta="generacion"] { --ruta: var(--ruta-generacion); }
+.bloque[data-ruta="salida"] { --ruta: var(--ruta-salida); }
+/* La flecha hacia el bloque siguiente. */
+.bloque:not(:last-child)::after {
+  content: "→"; position: absolute; top: 50%; right: calc(var(--espacio-3) * -1); width: var(--espacio-3);
+  transform: translateY(-50%); color: var(--texto-tenue); font-size: var(--texto-xs); text-align: center;
+}
+.bloque__boton {
+  display: flex; flex-direction: column; gap: 2px; width: 100%; height: 100%; min-height: 6.4rem;
+  padding: var(--espacio-2) var(--espacio-3); border: 1px solid var(--borde); border-top: 3px solid var(--ruta);
+  border-radius: var(--radio-sm); background: var(--superficie-hundida); color: var(--texto);
+  font: inherit; text-align: left; cursor: pointer;
+  transition: background var(--transicion) var(--curva), border-color var(--transicion) var(--curva),
+    box-shadow var(--transicion) var(--curva), opacity var(--transicion) var(--curva);
+}
+.bloque__boton:hover { border-color: var(--ruta); }
+.bloque__numero { color: var(--texto-tenue); font-size: var(--texto-xs); font-variant-numeric: tabular-nums; }
+.bloque__nombre { font-size: var(--texto-sm); font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.bloque__dato { color: var(--texto-suave); font-size: var(--texto-xs); font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere; }
+.bloque__estado { margin-top: auto; color: var(--texto-tenue); font-size: var(--texto-xs); }
+.bloque--activo .bloque__boton { border-color: var(--ruta); background: var(--superficie);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ruta) 35%, transparent); }
+.bloque--activo .bloque__estado { color: var(--texto); font-weight: 600; }
+.bloque--activo .bloque__estado::before {
+  content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%;
+  background: var(--ruta); animation: latir 900ms var(--curva) infinite alternate;
+}
+.bloque--listo .bloque__boton { border-color: var(--ruta);
+  background: color-mix(in srgb, var(--ruta) 14%, var(--superficie)); }
+.bloque--listo .bloque__estado { color: var(--texto-suave); }
+.bloque--omitido .bloque__boton, .bloque--error .bloque__boton { border-style: dashed; opacity: 0.75; }
+/* Rama didáctica: el DVAE no alimenta al vocoder. */
+.bloque[data-bloque="dvae"] .bloque__boton { border-style: dashed; }
+@keyframes latir { from { opacity: 0.35; } to { opacity: 1; } }
+.etapa-cinco .boton--primario { border-color: var(--ruta-salida); background: var(--ruta-salida); }
+.etapa-cinco .boton--primario:hover:not(:disabled) { color: #ffffff; }
+@media (max-width: 1100px) {
+  .diagrama { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .bloque:nth-child(4)::after { content: none; }
+}
+@media (max-width: 560px) {
+  .diagrama { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bloque:nth-child(2n)::after { content: none; }
+}

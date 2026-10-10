@@ -1,4 +1,4 @@
-"""Rutas de la etapa 3: generación en vivo (SSE) y audio crudo por fases."""
+"""Rutas de la etapa 3: generación en vivo (SSE), explicación y audio crudo por fases."""
 
 import json
 import os
@@ -11,6 +11,7 @@ from flask import Blueprint, Response, current_app, jsonify, request, session
 from .. import caracteristicas
 from ..audio import AudioInvalido, cargar_audio
 from ..fases import (FASES, ReconstructorFases, a_wav, audio_desde_mel_referencia)
+from ..explicacion import Explicador, matriz_cuantizada
 from ..generacion import GeneradorOcupado, GeneradorTokens, evento_paso
 from ..identidad import ModeloNoDisponible, carpeta_modelo
 from .identidad import fabrica_identidad
@@ -80,8 +81,9 @@ def crear_rutas_generacion(memoria):
                                               al_paso=lambda p: cola.put(("paso", evento_paso(p))),
                                               detener=detener, determinista=determinista, semilla=semilla)
                 try:
+                    # Tokens nuevos: los latentes de una síntesis anterior ya no corresponden.
                     memoria.anotar(propietario, identificador, tokens_audio=resultado.tokens,
-                                   texto_generado=texto.strip())
+                                   texto_generado=texto.strip(), texto_ids=ids, latentes=None)
                 except KeyError:
                     pass
                 cola.put(("fin", resultado.como_dict()))
@@ -108,6 +110,67 @@ def crear_rutas_generacion(memoria):
 
         return Response(flujo(), mimetype="text/event-stream",
                         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    def preparar_explicacion():
+        """Valida la petición y devuelve (entrada, explicador, datos) o una respuesta de error."""
+        datos = request.get_json(silent=True)
+        if not isinstance(datos, dict) or datos.get("consentimiento") != "si":
+            return None, None, (jsonify(errores=["Confirma el consentimiento."]), 400)
+        try:
+            entrada = entrada_de_sesion(datos.get("id_corrida"))
+        except KeyError:
+            return None, None, (jsonify(errores=["El resultado de la etapa 1 venció o no existe. Vuelve a analizar la referencia."]), 410)
+        if entrada.identidad is None or entrada.tokens_audio is None or entrada.texto_ids is None:
+            return None, None, (jsonify(errores=["Genera primero los tokens en la etapa 3."]), 409)
+        if len(entrada.tokens_audio) == 0:
+            return None, None, (jsonify(errores=["La generación no produjo tokens que explicar."]), 409)
+        try:
+            generador = current_app.extensions["modelos"].obtener("generador", fabrica_generador)
+        except ModeloNoDisponible as exc:
+            return None, None, (jsonify(errores=[str(exc)]), 503)
+        return entrada, Explicador(generador), datos
+
+    def indice(datos, clave, opcional=False):
+        """Lee un índice que la página cuenta desde 1 y lo devuelve desde 0."""
+        valor = datos.get(clave)
+        if valor is None and opcional:
+            return None
+        if not isinstance(valor, int) or isinstance(valor, bool):
+            raise ValueError(f"Falta indicar {clave}.")
+        return valor - 1
+
+    @rutas.post("/api/explicar/atencion")
+    def explicar_atencion():
+        """Atención completa de una capa y una cabeza (o su promedio), en una sola escala."""
+        entrada, explicador, datos = preparar_explicacion()
+        if entrada is None:
+            return datos
+        try:
+            capa, cabeza = indice(datos, "capa"), indice(datos, "cabeza", opcional=True)
+            matriz = explicador.atencion(entrada.identidad, entrada.texto_ids, entrada.tokens_audio,
+                                         capa, cabeza)
+        except ValueError as exc:
+            return jsonify(errores=[str(exc)]), 400
+        except GeneradorOcupado as exc:
+            return jsonify(errores=[str(exc)]), 409
+        return jsonify(capa=capa + 1, cabeza=None if cabeza is None else cabeza + 1,
+                       **matriz_cuantizada(matriz))
+
+    @rutas.post("/api/explicar/causal")
+    def explicar_causal():
+        """Intervenciones: sin `capa`, por zonas; con `capa`, apagando sus cabezas una a una."""
+        entrada, explicador, datos = preparar_explicacion()
+        if entrada is None:
+            return datos
+        argumentos = (entrada.identidad, entrada.texto_ids, entrada.tokens_audio)
+        try:
+            if datos.get("capa") is None:
+                return jsonify(explicador.efecto_causal(*argumentos))
+            return jsonify(explicador.efecto_cabezas(*argumentos, indice(datos, "capa")))
+        except ValueError as exc:
+            return jsonify(errores=[str(exc)]), 400
+        except GeneradorOcupado as exc:
+            return jsonify(errores=[str(exc)]), 409
 
     @rutas.post("/api/fases/audio")
     def fase_audio():

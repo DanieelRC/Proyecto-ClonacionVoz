@@ -41,14 +41,14 @@ def audio_desde_mel_referencia(mel) -> np.ndarray:
     return mel_a_audio(mel, config.N_FFT)
 
 
-def a_wav(muestras, pico=0.9) -> bytes:
+def a_wav(muestras, pico=0.9, sr=config.SR) -> bytes:
     """Muestras -> bytes de un WAV PCM de 16 bits, con el pico normalizado."""
     muestras = np.nan_to_num(np.asarray(muestras, dtype=np.float32))
     maximo = float(np.max(np.abs(muestras))) if muestras.size else 0.0
     if maximo > 0:
         muestras = muestras * (pico / maximo)
     salida = io.BytesIO()
-    sf.write(salida, muestras, config.SR, format="WAV", subtype="PCM_16")
+    sf.write(salida, muestras, sr, format="WAV", subtype="PCM_16")
     return salida.getvalue()
 
 
