@@ -6,6 +6,7 @@ de Flask no habla WebSocket.
 
 import http.cookiejar
 import json
+import os
 import tempfile
 import threading
 import unittest
@@ -13,6 +14,7 @@ import urllib.error
 import urllib.request
 import uuid
 import warnings
+from pathlib import Path
 
 try:
     import torch  # noqa: F401
@@ -24,6 +26,7 @@ from simple_websocket import Client, ConnectionClosed
 from werkzeug.serving import make_server
 
 from clonvoz.fases import ReconstructorFases
+from clonvoz.grabacion import FORMATO, Grabador, Traductor, ruta_de_grabacion
 from clonvoz.identidad import ModeloNoDisponible
 from clonvoz.pipeline import BLOQUES, CorridaCancelada, ejecutar_corrida
 from clonvoz.web.servidor import crear_app
@@ -86,6 +89,8 @@ class PruebasPipeline(unittest.TestCase):
         formas = {b["id"]: b["forma"] for b in bloques if b["estado"] == "listo"}
         self.assertEqual(formas["mel"][0], 80)
         self.assertEqual(formas["perceiver"][0], 32)
+        self.assertEqual(formas["texto"], [len(corrida.generacion.texto_ids)])
+        self.assertEqual(formas["hablante"], [512])
         self.assertEqual(formas["tokens"], [len(corrida.generacion.tokens)])
         self.assertEqual(formas["salida"], [len(corrida.sintesis.onda)])
 
@@ -99,6 +104,30 @@ class PruebasPipeline(unittest.TestCase):
         # Los eventos pequeños son JSON tal cual.
         json.dumps([d for t, d in eventos if t in ("bloque", "inicio", "paso", "fin", "causal")],
                    allow_nan=False)
+
+    def test_grabacion_reproduce_los_eventos_de_la_web(self):
+        grabador = Grabador()
+        traducir = Traductor("voz.wav", "Hola mundo", "grabada")
+        ejecutar_corrida(self.voz, "Hola mundo", ModelosChicos(self.carpeta.name),
+                         lambda t, d: grabador(t, traducir(t, d)), determinista=True, metodo_f0="yin",
+                         id_corrida="grabada")
+        corrida = json.loads(json.dumps(grabador.como_dict(), allow_nan=False))
+        self.assertEqual(corrida["formato"], FORMATO)
+        porTipo = {e["tipo"]: e["datos"] for e in corrida["eventos"]}
+        self.assertEqual(porTipo["etapa1"]["id_corrida"], "grabada")
+        self.assertIn("mel", porTipo["etapa1"]["graficas"])
+        self.assertIn("atencion", porTipo["etapa2"]["resultados"][0]["graficas"])
+        self.assertTrue(porTipo["etapa4"]["audio"].startswith("data:audio/wav;base64,"))
+        tiempos = [e["t"] for e in corrida["eventos"]]
+        self.assertEqual(tiempos, sorted(tiempos))
+
+    def test_nombres_de_grabacion(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            (Path(carpeta) / "respaldo.json").write_text("{}", encoding="utf-8")
+            self.assertEqual(ruta_de_grabacion(carpeta, "respaldo.json").name, "respaldo.json")
+            for nombre in ("../secreto.json", "..\\x.json", "otro.txt", ".oculto.json", "falta.json", ""):
+                with self.assertRaises(KeyError):
+                    ruta_de_grabacion(carpeta, nombre)
 
     def test_sin_dvae_la_corrida_sigue(self):
         corrida, eventos = self.correr(ModelosChicos(), explicar=False)
@@ -237,6 +266,23 @@ class PruebasWebPipeline(unittest.TestCase):
         self.assertEqual(eventos[-1]["tipo"], "terminada")
         self.assertEqual(eventos[-1]["datos"]["motivo"], "cancelada")
         self.assertNotIn("etapa4", [e["tipo"] for e in eventos])
+
+    def test_grabaciones_de_respaldo(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            os.environ["CLONVOZ_GRABACIONES"] = carpeta
+            try:
+                (Path(carpeta) / "respaldo.json").write_text('{"formato": "x"}', encoding="utf-8")
+                with self.abridor.open(self.url("/api/grabaciones")) as respuesta:
+                    lista = json.load(respuesta)["grabaciones"]
+                self.assertEqual([g["nombre"] for g in lista], ["respaldo.json"])
+                with self.abridor.open(self.url("/api/grabaciones/respaldo.json")) as respuesta:
+                    self.assertEqual(json.load(respuesta), {"formato": "x"})
+                for nombre in ("no-existe.json", "..%2Fapp.py", "%2E%2E%5Capp.py"):
+                    with self.assertRaises(urllib.error.HTTPError) as error:
+                        self.abridor.open(self.url("/api/grabaciones/" + nombre))
+                    self.assertEqual(error.exception.code, 404)
+            finally:
+                del os.environ["CLONVOZ_GRABACIONES"]
 
     def test_rechazos(self):
         self.assertEqual(self.lanzar(consentimiento="no")[0], 400)

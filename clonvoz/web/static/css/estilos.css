@@ -628,53 +628,88 @@ body {
 .reproductor--salida { padding-left: var(--espacio-3); border-left: 3px solid var(--ruta-salida); }
 .etapa-cuatro audio { max-width: 100%; }
 
-/* Etapa 5: el diagrama de ocho bloques. El estado va siempre también en texto. */
+/* Etapas 5 y 6: arquitectura en vivo, barra de avance y modo grabado. */
 .etapa-cinco { margin-top: var(--espacio-6); }
-.diagrama { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: var(--espacio-3);
-  margin: var(--espacio-4) 0 var(--espacio-3); padding: 0; list-style: none; }
-.bloque { position: relative; min-width: 0; --ruta: var(--ruta-audio); }
-.bloque[data-ruta="generacion"] { --ruta: var(--ruta-generacion); }
-.bloque[data-ruta="salida"] { --ruta: var(--ruta-salida); }
-/* La flecha hacia el bloque siguiente. */
-.bloque:not(:last-child)::after {
-  content: "→"; position: absolute; top: 50%; right: calc(var(--espacio-3) * -1); width: var(--espacio-3);
-  transform: translateY(-50%); color: var(--texto-tenue); font-size: var(--texto-xs); text-align: center;
-}
-.bloque__boton {
-  display: flex; flex-direction: column; gap: 2px; width: 100%; height: 100%; min-height: 6.4rem;
-  padding: var(--espacio-2) var(--espacio-3); border: 1px solid var(--borde); border-top: 3px solid var(--ruta);
-  border-radius: var(--radio-sm); background: var(--superficie-hundida); color: var(--texto);
-  font: inherit; text-align: left; cursor: pointer;
-  transition: background var(--transicion) var(--curva), border-color var(--transicion) var(--curva),
-    box-shadow var(--transicion) var(--curva), opacity var(--transicion) var(--curva);
-}
-.bloque__boton:hover { border-color: var(--ruta); }
-.bloque__numero { color: var(--texto-tenue); font-size: var(--texto-xs); font-variant-numeric: tabular-nums; }
-.bloque__nombre { font-size: var(--texto-sm); font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
-.bloque__dato { color: var(--texto-suave); font-size: var(--texto-xs); font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere; }
-.bloque__estado { margin-top: auto; color: var(--texto-tenue); font-size: var(--texto-xs); }
-.bloque--activo .bloque__boton { border-color: var(--ruta); background: var(--superficie);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ruta) 35%, transparent); }
-.bloque--activo .bloque__estado { color: var(--texto); font-weight: 600; }
-.bloque--activo .bloque__estado::before {
-  content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%;
-  background: var(--ruta); animation: latir 900ms var(--curva) infinite alternate;
-}
-.bloque--listo .bloque__boton { border-color: var(--ruta);
-  background: color-mix(in srgb, var(--ruta) 14%, var(--superficie)); }
-.bloque--listo .bloque__estado { color: var(--texto-suave); }
-.bloque--omitido .bloque__boton, .bloque--error .bloque__boton { border-style: dashed; opacity: 0.75; }
-/* Rama didáctica: el DVAE no alimenta al vocoder. */
-.bloque[data-bloque="dvae"] .bloque__boton { border-style: dashed; }
-@keyframes latir { from { opacity: 0.35; } to { opacity: 1; } }
+.titulo-etapa { margin: var(--espacio-6) 0 var(--espacio-3); font-size: var(--texto-lg); }
+.corrida__cabecera { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: var(--espacio-3); }
+.corrida__cabecera h2 { margin: 0; }
+.segmentado { display: inline-flex; padding: 3px; border: 1px solid var(--borde); border-radius: 999px;
+  background: var(--superficie-hundida); }
+.segmentado__opcion { padding: var(--espacio-1) var(--espacio-4); border: 0; border-radius: 999px; background: none;
+  color: var(--texto-suave); font: inherit; font-size: var(--texto-sm); cursor: pointer;
+  transition: background var(--transicion) var(--curva), color var(--transicion) var(--curva); }
+.segmentado__opcion[aria-pressed="true"] { background: var(--superficie); color: var(--texto); font-weight: 600;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.15); }
+.segmentado__opcion:disabled { cursor: default; opacity: 0.6; }
 .etapa-cinco .boton--primario { border-color: var(--ruta-salida); background: var(--ruta-salida); }
 .etapa-cinco .boton--primario:hover:not(:disabled) { color: #ffffff; }
-@media (max-width: 1100px) {
-  .diagrama { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .bloque:nth-child(4)::after { content: none; }
-}
-@media (max-width: 560px) {
-  .diagrama { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .bloque:nth-child(2n)::after { content: none; }
+.selector { padding: var(--espacio-2) var(--espacio-3); border: 1px solid var(--borde-fuerte); border-radius: var(--radio-sm);
+  background: var(--superficie); color: var(--texto); font: inherit; font-size: var(--texto-sm); max-width: 100%; }
+.etiqueta-en-linea { color: var(--texto-suave); font-size: var(--texto-sm); }
+
+/* El diagrama: los colores salen de las rutas, así cambian solos con el tema. */
+.arquitectura { margin-top: var(--espacio-4); overflow-x: auto; }
+.arquitectura__svg { display: block; width: 100%; min-width: 720px; height: auto; font-family: var(--fuente); }
+.grupo { --ruta: var(--ruta-audio); }
+[data-ruta="texto"] { --ruta: var(--ruta-texto); }
+[data-ruta="generacion"] { --ruta: var(--ruta-generacion); }
+[data-ruta="salida"] { --ruta: var(--ruta-salida); }
+[data-ruta="audio"] { --ruta: var(--ruta-audio); }
+.grupo__fondo { fill: color-mix(in srgb, var(--ruta) 9%, transparent); stroke: color-mix(in srgb, var(--ruta) 45%, transparent);
+  stroke-width: 1.2; }
+.grupo__titulo { fill: var(--texto); font-size: 13px; font-weight: 600; }
+.arista { fill: none; stroke: var(--texto-tenue); stroke-width: 1.6;
+  transition: stroke var(--transicion) var(--curva), stroke-width var(--transicion) var(--curva); }
+.arista--punteada { stroke-dasharray: 5 4; }
+.arista--viva { stroke: var(--ruta); stroke-width: 2.6; }
+.arista__punta { fill: var(--texto-tenue); }
+.arista__etiqueta { fill: var(--texto-suave); font-size: 12px; }
+.punto { fill: var(--ruta); stroke: var(--superficie); stroke-width: 2;
+  filter: drop-shadow(0 0 4px var(--ruta)); }
+.nodo { cursor: pointer; outline: none; }
+.nodo__caja { fill: var(--superficie); stroke: var(--borde-fuerte); stroke-width: 1.4;
+  transition: fill var(--transicion-lenta) var(--curva), stroke var(--transicion) var(--curva), stroke-width var(--transicion) var(--curva); }
+.nodo--punteada .nodo__caja { stroke-dasharray: 6 4; }
+.nodo__nombre { fill: var(--texto); font-size: 13.5px; font-weight: 600; pointer-events: none; }
+.nodo__dato { fill: var(--texto-tenue); font-size: 11.5px; pointer-events: none; }
+.nodo:hover .nodo__caja, .nodo:focus-visible .nodo__caja { stroke: var(--ruta); stroke-width: 2.4; }
+.nodo--activo .nodo__caja { stroke: var(--ruta); stroke-width: 3; fill: color-mix(in srgb, var(--ruta) 12%, var(--superficie));
+  animation: latir-nodo 1s var(--curva) infinite alternate; }
+.nodo--activo .nodo__dato { fill: var(--texto); font-weight: 600; }
+.nodo--listo .nodo__caja { stroke: var(--ruta); fill: color-mix(in srgb, var(--ruta) 22%, var(--superficie)); }
+.nodo--listo .nodo__dato { fill: var(--texto-suave); }
+.nodo--omitido .nodo__caja, .nodo--error .nodo__caja { stroke-dasharray: 4 3; opacity: 0.7; }
+@keyframes latir-nodo { from { stroke-opacity: 0.45; } to { stroke-opacity: 1; } }
+.detalle-bloque { min-height: 2.6em; margin: var(--espacio-2) 0 0; color: var(--texto-suave); font-size: var(--texto-sm); }
+
+/* Barra fija: el avance sigue a la vista mientras se lee cada etapa. */
+.barra-corrida { position: fixed; top: var(--espacio-3); left: 50%; z-index: 20; display: flex; align-items: center;
+  gap: var(--espacio-3); max-width: calc(100% - 2 * var(--espacio-4)); padding: var(--espacio-2) var(--espacio-4);
+  border: 1px solid var(--borde); border-radius: 999px; background: color-mix(in srgb, var(--superficie) 92%, transparent);
+  backdrop-filter: blur(8px); box-shadow: 0 6px 24px rgb(0 0 0 / 0.18);
+  opacity: 0; pointer-events: none; transform: translate(-50%, -12px);
+  transition: opacity var(--transicion) var(--curva), transform var(--transicion) var(--curva); }
+.barra-corrida--visible { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+.barra-corrida__puntos { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.barra-corrida__punto { --ruta: var(--ruta-audio); width: 14px; height: 14px; padding: 0; border: 2px solid var(--ruta);
+  border-radius: 50%; background: transparent; cursor: pointer; transition: background var(--transicion) var(--curva); }
+.barra-corrida__punto[data-estado="activo"] { background: var(--ruta); animation: latir 900ms var(--curva) infinite alternate; }
+.barra-corrida__punto[data-estado="listo"] { background: var(--ruta); }
+.barra-corrida__punto[data-estado="omitido"], .barra-corrida__punto[data-estado="error"] { border-style: dashed; }
+.barra-corrida__texto { color: var(--texto); font-size: var(--texto-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.barra-corrida__boton { padding: var(--espacio-1) var(--espacio-3); font-size: var(--texto-xs); white-space: nowrap; }
+@keyframes latir { from { opacity: 0.35; } to { opacity: 1; } }
+
+.reproductor-corrida { display: flex; flex-wrap: wrap; align-items: center; gap: var(--espacio-3); margin-top: var(--espacio-3); }
+.reproductor-corrida__barra { flex: 1 1 160px; }
+.reproductor-corrida__tiempo { margin: 0; font-variant-numeric: tabular-nums; }
+#resultados, .etapa-dos, .etapa-tres, .etapa-cuatro { scroll-margin-top: 4.5rem; }
+#resultados-generacion, #titulo-causal, #titulo-sintesis, #titulo-identidad, #titulo-generacion { scroll-margin-top: 4.5rem; }
+details.fases > summary { font-weight: 600; color: var(--texto); }
+.explicacion-atencion summary { font-weight: 600; }
+
+@media (max-width: 640px) {
+  .barra-corrida { gap: var(--espacio-2); padding: var(--espacio-2) var(--espacio-3); }
+  .barra-corrida__texto, #ir-al-diagrama { display: none; }
 }

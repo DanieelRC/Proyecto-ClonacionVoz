@@ -20,13 +20,15 @@ BLOQUES = (
     ("audio", "Audio de referencia", "audio"),
     ("mel", "Mel-espectrograma", "audio"),
     ("perceiver", "Perceiver", "audio"),
+    ("texto", "Tokenizador BPE", "texto"),
     ("gpt", "GPT-2", "generacion"),
     ("tokens", "Tokens de audio", "generacion"),
     ("dvae", "DVAE", "generacion"),
+    ("hablante", "Codificador de hablante", "audio"),
     ("hifigan", "HiFi-GAN", "salida"),
     ("salida", "Audio clonado", "salida"),
 )
-"""(id, nombre, ruta de color) de los ocho bloques del diagrama, en orden."""
+"""(id, nombre, ruta de color) de los bloques del diagrama, en el orden en que terminan."""
 
 
 class CorridaCancelada(Exception):
@@ -92,12 +94,14 @@ def ejecutar_corrida(fuente, texto, modelos, emitir, *, detener=None, determinis
     listo("perceiver", ms=identidad.tiempos_ms["codificacion"], forma=list(identidad.vectores.shape))
     emitir("etapa2", identidad)
 
-    # 3. Etapa 3: el GPT-2 genera; cada token es un evento.
-    inicio = activo("gpt", "cargando el modelo la primera vez")
+    # 3. Etapa 3: el texto pasa a fichas BPE y el GPT-2 genera; cada token es un evento.
+    inicio = activo("texto", "cargando el GPT-2 la primera vez")
     generador = modelos.generador()
+    reloj = time.perf_counter()
     ids, piezas = generador.tokenizar(texto)
+    listo("texto", reloj, forma=[len(ids)], nota=f"{len(ids)} fichas")
+    activo("gpt")
     emitir("inicio", generador.evento_inicio(analisis.id_corrida, texto, ids, piezas, determinista, semilla))
-    emitir("bloque", {"id": "gpt", "estado": "activo", "nota": f"{len(ids)} fichas de texto"})
     emitir("bloque", {"id": "tokens", "estado": "activo", "nota": None})
     generacion = generador.generar(identidad.vectores, texto, detener=detener,
                                    al_paso=lambda paso: emitir("paso", evento_paso(paso)),
@@ -118,10 +122,13 @@ def ejecutar_corrida(fuente, texto, modelos, emitir, *, detener=None, determinis
         fases = None
         listo("dvae", inicio, nota=str(exc), estado="omitido")
 
-    # 5. Etapa 4: latentes del GPT-2 + vector de hablante -> HiFi-GAN.
-    inicio = activo("hifigan", "cargando el vocoder la primera vez")
+    # 5. Etapa 4: vector de hablante (16 kHz) + latentes del GPT-2 -> HiFi-GAN.
+    activo("hablante", "cargando el vocoder la primera vez")
     sintetizador = modelos.sintetizador()
+    reloj = time.perf_counter()
     embedding = sintetizador.embedding_hablante(analisis.audio.muestras)
+    listo("hablante", reloj, forma=list(embedding.shape), nota="audio a 16 kHz")
+    inicio = activo("hifigan")
     sintesis = sintetizador.sintetizar(identidad.vectores, ids, generacion.tokens, embedding, fases)
     listo("hifigan", inicio, forma=list(sintesis.latentes.shape), nota="latentes del GPT-2 → onda")
     activo("salida")

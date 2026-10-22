@@ -87,21 +87,21 @@
   });
 
   function explicarAtencion(datos, columna) {
-    // Los porcentajes vienen de esta referencia, nunca de un ejemplo fijo.
+    // Plegado: la tabla con los porcentajes de esta referencia y tres frases.
     // textContent conserva el contenido como texto y evita interpretar HTML.
-    const panel = document.createElement("section");
-    panel.className = "explicacion-atencion";
-    function texto(etiqueta, contenido) {
-      const nodo = document.createElement(etiqueta);
+    const panel = document.createElement("details");
+    panel.className = "detalle explicacion-atencion";
+    const resumen = document.createElement("summary");
+    resumen.textContent = "Cómo leer este resultado";
+    panel.appendChild(resumen);
+    function texto(contenido) {
+      const nodo = document.createElement("p");
       nodo.textContent = contenido;
       panel.appendChild(nodo);
     }
-    texto("h4", "Cómo leer este resultado");
-    texto("p", "La etapa 1 convierte el audio en un mel-espectrograma. En la etapa 2, el codificador procesa ese mel y el Perceiver lo resume en 32 vectores de 1024 valores. Las gráficas explican ese cálculo; no son audio generado.");
-    texto("p", "Las consultas son los 32 vectores internos que el modelo va actualizando. Cada capa puede combinar información del audio codificado y de las propias consultas. En la última capa, las consultas ya han pasado por la primera y pueden contener información del audio.");
     const tabla = document.createElement("table");
     const titulo = document.createElement("caption");
-    titulo.textContent = "Distribución media de la atención en esta referencia";
+    titulo.textContent = "A dónde va la atención de las 32 consultas, en promedio";
     tabla.appendChild(titulo);
     const cabecera = tabla.createTHead().insertRow();
     ["Capa", "Al audio", "A las consultas"].forEach(function (nombre) {
@@ -122,21 +122,10 @@
       fila.insertCell().textContent = porcentaje(capa.consultas_porcentaje);
     });
     panel.appendChild(tabla);
-    texto("p", "Cómo se calculan: se suman los pesos destinados a todos los instantes del audio y, por separado, a las consultas; se promedian las 32 consultas y las 8 cabezas de atención y se multiplican por 100. Los dos destinos suman aproximadamente 100 % en cada capa. El redondeo puede producir pequeñas diferencias; 0.00 % puede representar un valor muy pequeño.");
-    texto("p", "Estos porcentajes indican cómo se reparte la atención. No indican precisión, calidad de clonación, porcentaje de voz reconocida ni cuánto del audio se escuchó. Tampoco miden por sí solos la contribución final de cada parte al resultado.");
-    texto("h4", "Por qué un mapa puede verse casi negro");
-    texto("p", "Los mapas de atención solo dibujan los pesos dirigidos al audio. El eje horizontal es el tiempo y cada fila es una consulta. El color indica el peso según la barra: en el tema claro, más oscuro es más peso; en el tema oscuro, más claro es más peso. El peso dirigido a las consultas no aparece en esos mapas, pero sí en la tabla.");
-    (datos.resumen_atencion || []).forEach(function (capa) {
-      texto("p", capa.capa + ": en este análisis destina " + porcentaje(capa.audio_porcentaje) +
-        " al audio y " + porcentaje(capa.consultas_porcentaje) + " a las consultas, en promedio. " +
-        (capa.consultas_porcentaje > capa.audio_porcentaje ?
-          "La mayor parte va a las consultas; esa parte no colorea el mapa del audio." :
-          "La mayor parte va al audio, pero puede repartirse entre muchos instantes o concentrarse en unos pocos; no tiene que iluminar todo el mapa."));
-    });
-    texto("p", "El color usa una escala de potencia 0.4 para hacer visibles pesos pequeños; la barra conserva los valores reales. No se inventan pesos ni se redistribuyen para llenar la imagen. Si todos son cero, aparece un mensaje. Un mapa de pesos bajos por sí solo no demuestra un fallo ni garantiza que el resultado sea correcto.");
-    texto("h4", "Qué muestran las otras vistas");
-    texto("p", "Similitud entre consultas compara la dirección de los 32 vectores entre sí: 1 significa la misma dirección, 0 direcciones perpendiculares y −1 direcciones opuestas. La diagonal vale 1 para vectores no nulos. No compara personas ni mide la calidad de su voz.");
-    texto("p", "En los detalles puedes ver la matriz original [32, 1024] y una versión con la media de cada dimensión restada, que destaca diferencias entre consultas. Esa resta solo sirve para visualizar: los vectores originales se conservan intactos para las siguientes etapas.");
+    texto("Los mapas solo dibujan el peso que va al audio (tiempo en horizontal, una consulta por fila); " +
+      "el que va a las propias consultas está en la tabla. Por eso un mapa puede verse casi oscuro.");
+    texto("El color usa una potencia 0.4 para revelar pesos pequeños; los valores no se renormalizan.");
+    texto("Repartir atención no mide calidad de clonación ni identifica a una persona.");
     columna.appendChild(panel);
   }
 
@@ -150,11 +139,11 @@
     explicarAtencion(datos, columna);
     // La vista principal explica relaciones; los detalles conservan los valores.
     const descripciones = {
-      atencion_inicial: "Primera capa: pesos al audio; colores con escala de potencia 0.4.",
-      atencion: "Última capa: pesos al audio. Puede atender a consultas ya procesadas.",
-      similitud: "Coseno entre las 32 consultas: 1 indica la misma dirección, 0 direcciones perpendiculares y −1 opuestas. No mide identidad ni calidad de voz. Gris: consulta nula, sin coseno definido.",
-      centrada: "Se resta la media de cada dimensión solo para visualizar diferencias entre consultas. No modifica la salida del modelo.",
-      identidad: "Salida original [32, 1024], conservada sin cambios para las siguientes etapas. Blanco: valor cercano a cero.",
+      atencion_inicial: "Primera capa: atención de cada consulta al audio.",
+      atencion: "Última capa: atención de cada consulta al audio.",
+      similitud: "Coseno entre las 32 consultas: 1 misma dirección, −1 opuesta. No compara personas.",
+      centrada: "Diferencias entre consultas (se resta la media solo para verlas).",
+      identidad: "Salida original [32, 1024] que usan las etapas siguientes.",
     };
     ["atencion_inicial", "atencion", "similitud", "centrada", "identidad"].forEach(function (nombre) {
       // 4b. Dos imágenes del mismo mapa: CSS elige la variante clara u oscura.
@@ -182,7 +171,7 @@
       const pie = document.createElement("figcaption");
       pie.textContent = descripciones[nombre];
       if (nombre.startsWith("atencion")) {
-        pie.textContent += " Desplázate horizontalmente para recorrer el audio completo. Cada instante ocupa al menos dos píxeles, sin cambiar sus valores ni la escala de color.";
+        pie.textContent += " Desplázate en horizontal para ver todo el audio.";
       }
       figura.append(lienzo, pie);
       if (nombre === "identidad" || nombre === "centrada") {

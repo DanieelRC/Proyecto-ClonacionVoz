@@ -1,7 +1,5 @@
 """Rutas de la etapa 4: la voz clonada y su contraste sin vector de hablante."""
 
-import base64
-
 import numpy as np
 from flask import Blueprint, Response, current_app, jsonify, request, session
 
@@ -9,8 +7,7 @@ from .. import caracteristicas
 from ..audio import AudioInvalido, cargar_audio
 from ..fases import a_wav
 from ..generacion import GeneradorOcupado
-from ..graficas import como_data_uri
-from ..graficas_sintesis import renderizar_sintesis
+from ..grabacion import respuesta_sintesis
 from ..identidad import ModeloNoDisponible, carpeta_modelo
 from ..sintesis import Sintetizador
 from .generacion import _fabrica_fases, fabrica_generador
@@ -28,19 +25,6 @@ def fases_o_nada():
         return current_app.extensions["modelos"].obtener("fases", _fabrica_fases)
     except ModeloNoDisponible:
         return None
-
-
-def wav_como_data_uri(muestras, sr) -> str:
-    return "data:audio/wav;base64," + base64.b64encode(a_wav(muestras, sr=sr)).decode("ascii")
-
-
-def respuesta_sintesis(sintesis, mel_referencia) -> dict:
-    """Sintesis -> lo que la página necesita: cifras, figuras y el audio."""
-    datos = sintesis.como_dict()
-    datos["graficas"] = {nombre: {tema: como_data_uri(png) for tema, png in temas.items()}
-                         for nombre, temas in renderizar_sintesis(sintesis, mel_referencia).items()}
-    datos["audio"] = wav_como_data_uri(sintesis.onda, sintesis.sr)
-    return datos
 
 
 def crear_rutas_sintesis(memoria):

@@ -77,7 +77,7 @@
     const texto = campo.value.trim();
     elemento("contador-texto").textContent = texto.length + " / " + LIMITE;
     botonGenerar.disabled = !referencia || !identidadLista || !autorizado() || !texto || enCurso();
-    botonDetener.disabled = !enCurso();
+    botonDetener.disabled = !enCurso() || externa;  // la corrida completa se detiene desde su panel
     botonGuardar.disabled = !vista || vista.modo !== "vivo" || !vista.fin || enCurso();
     archivoCorrida.disabled = enCurso();
     elemento("etiqueta-reproducir").classList.toggle("boton--inactivo", enCurso());

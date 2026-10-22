@@ -425,8 +425,7 @@ sigue siendo el mel completo de la etapa 2, no el promedio por fragmentos de
 ## Etapa 5 — Corrida completa en tiempo real
 
 **Ejecutar todo**, arriba de la página, corre las cuatro etapas en una sola
-pasada. El diagrama de ocho bloques (audio de referencia → mel → Perceiver →
-GPT-2 → tokens → DVAE → HiFi-GAN → audio clonado) se ilumina conforme el modelo
+pasada. El diagrama de arquitectura (ver etapa 6) se anima conforme el modelo
 avanza, y cada panel de detalle se llena con los mismos datos que cuando la
 etapa se ejecuta sola. Pulsar un bloque lleva a su panel.
 
@@ -438,7 +437,8 @@ GET  /api/inferencia/<id>/audio   el WAV final
 
 Eventos del canal, cada uno `{tipo, t, datos}` con `t` en milisegundos desde el
 inicio: `corrida`, `bloque` (`activo`, `listo` u `omitido`, con milisegundos y
-forma del tensor), `etapa1`, `etapa2`, `inicio` / `paso` / `fin` (los de la
+forma del tensor, para los diez bloques: audio, mel, Perceiver, tokenizador BPE,
+GPT-2, tokens, DVAE, codificador de hablante, HiFi-GAN y audio clonado), `etapa1`, `etapa2`, `inicio` / `paso` / `fin` (los de la
 etapa 3), `etapa4` (figuras y audio), `causal` y `terminada` o `error`. Nunca
 viaja un tensor completo. Enviar `{"accion": "detener"}` por el canal, o cerrar
 la página, detiene el GPT-2 en el siguiente token.
@@ -492,3 +492,57 @@ Al redirigir la salida de los scripts a un archivo en Windows, define
 La calidad de la clonación con grabaciones de hablantes reales y la ejecución en
 GPU quedan pendientes de comprobar en el equipo y con las referencias
 correspondientes.
+
+## Etapa 6 — Frontend de exposición y modo grabado
+
+La página queda lista para presentarse: menos texto a la vista (las
+explicaciones largas están en desplegables «Cómo leerlo»), modo claro y oscuro,
+y transiciones de 200 a 400 ms en cada cambio de estado.
+
+**Arquitectura en vivo.** El diagrama reproduce la arquitectura de XTTS-v2 en
+cuatro grupos:
+
+- **Contenido:** texto → tokenizador BPE.
+- **Identidad:** audio de referencia → mel a 22 050 Hz → condicionamiento y
+  Perceiver; y a 16 kHz → codificador de hablante.
+- **Generación:** GPT-2 ⇄ tokens de audio, con la realimentación.
+- **Decodificación:** HiFi-GAN → audio clonado.
+
+El DVAE aparece punteado: aquí es una rama didáctica, y en XTTS solo se usa al
+entrenar.
+
+Cuando un bloque empieza, un punto recorre las conexiones que llegan a él, y
+cada token generado da una vuelta GPT-2 → tokens → GPT-2. Cada bloque muestra
+su estado, el tiempo y la forma del tensor. Con «reducir movimiento» del
+sistema solo se iluminan las conexiones. Está hecho en SVG, en
+`clonvoz/web/static/js/arquitectura.js`, sin librerías.
+
+**Seguir la corrida.** Durante una corrida, en vivo o grabada, la página baja
+sola a cada etapa: gráficas de la etapa 1, Perceiver, tokens del GPT-2, voz y
+efecto causal. Si haces scroll a mano, el seguimiento se pausa y aparece
+«Volver a seguir». Una barra fija arriba muestra los diez bloques y la etapa en
+curso mientras el diagrama queda fuera de la vista.
+
+**Modo grabado (respaldo).** El interruptor **En vivo / Grabado** cambia entre
+el modelo real y una corrida guardada, y ambos animan todo igual. El modo
+grabado tiene reproducir, pausa, reanudar, detener y velocidad de 0.5× a 4×,
+con los tiempos originales (las esperas de más de 1 s, como cargar el modelo,
+se recortan). No necesita el modelo cargado ni conexión con el servidor si se
+abre un archivo.
+
+Para preparar el respaldo antes de la exposición, con tu voz y tu consentimiento:
+
+```powershell
+python -m clonvoz.cli_sintesis audios/mi_voz.wav --texto "Hola, esta es mi voz clonada." --consentimiento --grabar grabaciones/demo.json
+```
+
+o pulsa **Guardar corrida** tras una corrida en vivo y copia el archivo a
+`grabaciones/`. La página lista esa carpeta (`GET /api/grabaciones`); otra se
+indica con `$env:CLONVOZ_GRABACIONES`. La carpeta está excluida de Git porque
+contiene tu voz.
+
+| Archivo | Responsabilidad |
+|---|---|
+| `clonvoz/grabacion.py` | Formato de corrida grabada; misma traducción de eventos para la web y la CLI |
+| `clonvoz/web/static/js/arquitectura.js` | Diagrama SVG, punto de datos y estados de los bloques |
+| `clonvoz/web/static/js/pipeline.js` | En vivo / grabado, seguimiento del scroll, barra fija y reproductor |

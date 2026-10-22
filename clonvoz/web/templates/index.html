@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clonador de voz — Etapas 1 a 5</title>
+<title>Clonador de voz — Etapas 1 a 6</title>
 <!-- Icono incrustado: evita el 404 de /favicon.ico y no depende de ningún archivo. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg fill='%232a78d6'%3E%3Crect x='1' y='6' width='2' height='4' rx='1'/%3E%3Crect x='4.5' y='3' width='2' height='10' rx='1'/%3E%3Crect x='8' y='1' width='2' height='14' rx='1'/%3E%3Crect x='11.5' y='4.5' width='2' height='7' rx='1'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
@@ -42,12 +42,7 @@
   <header class="encabezado">
     <div>
       <h1 class="encabezado__titulo">Clonador de voz</h1>
-      <p class="encabezado__subtitulo">
-        Primero, cómo ve una computadora el sonido: forma de onda, espectrograma,
-        mel-espectrograma de {{ n_mels }} canales y contorno de entonación. Después,
-        cómo XTTS-v2 condensa esa voz en 32 vectores, genera con ellos los tokens de
-        audio de un texto nuevo y los convierte en la voz clonada.
-      </p>
+      <p class="encabezado__subtitulo">XTTS-v2 por dentro: de tu voz y un texto a la voz clonada.</p>
     </div>
     <button type="button" class="boton boton--discreto" id="conmutador-tema">
       <span id="etiqueta-tema">Modo oscuro</span>
@@ -80,15 +75,10 @@
     </div>
 
     <p class="ayuda">
-      Entre {{ duracion_recomendada_minima | int }} y {{ duracion_recomendada_maxima | int }}
-      segundos de habla continua es lo ideal.
-    </p>
-
-    <p class="ayuda">
       <label><input type="checkbox" id="consentimiento">
-        Tengo autorización de las personas de las referencias para grabar y procesar
-        sus voces en este proyecto académico de clonación de voz.
-      </label>
+        Tengo autorización de las personas de las referencias para procesar sus voces
+        en este proyecto académico.</label>
+      · Lo ideal: {{ duracion_recomendada_minima | int }} a {{ duracion_recomendada_maxima | int }} s de habla continua.
     </p>
     <!-- RF-04: confirmar el audio antes de analizarlo -->
     <div class="reproductor oculto" id="reproductor">
@@ -99,108 +89,76 @@
     <div class="mensajes" id="mensajes" role="status" aria-live="polite"></div>
   </section>
 
-  <section class="panel etapa-cinco" aria-labelledby="titulo-corrida">
-    <h2 id="titulo-corrida">Corrida completa · de tu voz a la voz clonada</h2>
-    <p>Las cuatro etapas en una sola corrida. El servidor avisa por un canal WebSocket en
-      el momento en que cada bloque empieza y termina, y los paneles de abajo se llenan
-      con los mismos datos. Pulsa un bloque para ir a su detalle.</p>
-    <ol class="diagrama" id="diagrama" aria-label="Los ocho bloques de XTTS-v2">
-      <li class="bloque" data-bloque="audio" data-ruta="audio">
-        <button type="button" class="bloque__boton">
-          <span class="bloque__numero">1</span>
-          <span class="bloque__nombre">Audio de referencia</span>
-          <span class="bloque__dato"></span>
-          <span class="bloque__estado">en espera</span>
-        </button>
-      </li>
-      <li class="bloque" data-bloque="mel" data-ruta="audio">
-        <button type="button" class="bloque__boton">
-          <span class="bloque__numero">2</span>
-          <span class="bloque__nombre">Mel-espectrograma</span>
-          <span class="bloque__dato"></span>
-          <span class="bloque__estado">en espera</span>
-        </button>
-      </li>
-      <li class="bloque" data-bloque="perceiver" data-ruta="audio">
-        <button type="button" class="bloque__boton">
-          <span class="bloque__numero">3</span>
-          <span class="bloque__nombre">Perceiver</span>
-          <span class="bloque__dato"></span>
-          <span class="bloque__estado">en espera</span>
-        </button>
-      </li>
-      <li class="bloque" data-bloque="gpt" data-ruta="generacion">
-        <button type="button" class="bloque__boton">
-          <span class="bloque__numero">4</span>
-          <span class="bloque__nombre">GPT-2</span>
-          <span class="bloque__dato"></span>
-          <span class="bloque__estado">en espera</span>
-        </button>
-      </li>
-      <li class="bloque" data-bloque="tokens" data-ruta="generacion">
-        <button type="button" class="bloque__boton">
-          <span class="bloque__numero">5</span>
-          <span class="bloque__nombre">Tokens de audio</span>
-          <span class="bloque__dato"></span>
-          <span class="bloque__estado">en espera</span>
-        </button>
-      </li>
-      <li class="bloque" data-bloque="dvae" data-ruta="generacion">
-        <button type="button" class="bloque__boton">
-          <span class="bloque__numero">6</span>
-          <span class="bloque__nombre">DVAE</span>
-          <span class="bloque__dato"></span>
-          <span class="bloque__estado">en espera</span>
-        </button>
-      </li>
-      <li class="bloque" data-bloque="hifigan" data-ruta="salida">
-        <button type="button" class="bloque__boton">
-          <span class="bloque__numero">7</span>
-          <span class="bloque__nombre">HiFi-GAN</span>
-          <span class="bloque__dato"></span>
-          <span class="bloque__estado">en espera</span>
-        </button>
-      </li>
-      <li class="bloque" data-bloque="salida" data-ruta="salida">
-        <button type="button" class="bloque__boton">
-          <span class="bloque__numero">8</span>
-          <span class="bloque__nombre">Audio clonado</span>
-          <span class="bloque__dato"></span>
-          <span class="bloque__estado">en espera</span>
-        </button>
-      </li>
-    </ol>
-    <p class="ayuda">El texto entra en el bloque 4, junto a los 32 vectores del Perceiver.
-      El bloque 6 es una rama didáctica: XTTS-v2 no decodifica los tokens con el DVAE,
-      sino que entrega los estados internos del GPT-2 directamente al HiFi-GAN. El DVAE
-      sirve para ver qué describen los tokens.</p>
-
-    <label class="etiqueta-campo" for="texto-corrida">Texto que dirá la voz</label>
-    <textarea id="texto-corrida" class="campo-texto" rows="2" maxlength="239"
-      placeholder="Escribe una oración en español."></textarea>
-    <div class="captura">
-      <button type="button" class="boton boton--primario" id="boton-corrida" disabled>Ejecutar todo</button>
-      <button type="button" class="boton" id="detener-corrida" disabled>Detener</button>
-      <button type="button" class="boton boton--discreto" id="guardar-corrida-completa" disabled>Guardar corrida completa</button>
-      <label class="boton boton--discreto" id="etiqueta-reproducir-completa">
-        <input type="file" id="archivo-corrida-completa" accept=".json,application/json" class="solo-lectores">
-        Reproducir corrida completa
-      </label>
+  <section class="panel etapa-cinco" aria-labelledby="titulo-corrida" id="panel-corrida">
+    <div class="corrida__cabecera">
+      <h2 id="titulo-corrida">Arquitectura en vivo</h2>
+      <div class="segmentado" role="group" aria-label="Modo de la corrida">
+        <button type="button" class="segmentado__opcion" id="modo-vivo" aria-pressed="true">En vivo</button>
+        <button type="button" class="segmentado__opcion" id="modo-grabado" aria-pressed="false">Grabado</button>
+      </div>
     </div>
+
+    <div class="arquitectura" id="arquitectura"></div>
+    <p class="detalle-bloque" id="detalle-bloque">Pulsa un bloque para ir a su detalle.</p>
+
+    <div id="controles-vivo">
+      <label class="etiqueta-campo" for="texto-corrida">Texto que dirá la voz</label>
+      <textarea id="texto-corrida" class="campo-texto" rows="2" maxlength="239"
+        placeholder="Escribe una oración en español."></textarea>
+      <div class="captura">
+        <button type="button" class="boton boton--primario" id="boton-corrida" disabled>Ejecutar todo</button>
+        <button type="button" class="boton" id="detener-corrida" disabled>Detener</button>
+        <button type="button" class="boton boton--discreto" id="guardar-corrida-completa" disabled>Guardar corrida</button>
+      </div>
+    </div>
+
+    <div id="controles-grabado" class="oculto">
+      <div class="captura">
+        <label class="etiqueta-en-linea" for="lista-grabaciones">Grabación</label>
+        <select id="lista-grabaciones" class="selector">
+          <option value="">Elige una grabación…</option>
+        </select>
+        <label class="boton boton--discreto" id="etiqueta-reproducir-completa">
+          <input type="file" id="archivo-corrida-completa" accept=".json,application/json" class="solo-lectores">
+          Abrir archivo…
+        </label>
+      </div>
+      <div class="reproductor-corrida">
+        <button type="button" class="boton boton--primario" id="reproducir-pausa" disabled>Reproducir</button>
+        <button type="button" class="boton" id="detener-reproduccion" disabled>Detener</button>
+        <label class="etiqueta-en-linea" for="velocidad">Velocidad</label>
+        <select id="velocidad" class="selector">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
+        </select>
+        <div class="progreso reproductor-corrida__barra" aria-hidden="true"><span class="progreso__relleno" id="progreso-reproduccion"></span></div>
+        <span class="ayuda reproductor-corrida__tiempo" id="tiempo-reproduccion">0.0 / 0.0 s</span>
+      </div>
+    </div>
+
+    <p class="ayuda"><label><input type="checkbox" id="seguir-corrida" checked>
+      Seguir la corrida: la página baja sola a cada etapa</label></p>
     <p id="estado-corrida" role="status" aria-live="polite"></p>
   </section>
 
+  <nav class="barra-corrida" id="barra-corrida" aria-label="Avance de la corrida">
+    <ol class="barra-corrida__puntos" id="barra-puntos"></ol>
+    <span class="barra-corrida__texto" id="barra-texto"></span>
+    <button type="button" class="boton boton--discreto barra-corrida__boton oculto" id="volver-a-seguir">Volver a seguir</button>
+    <button type="button" class="boton boton--discreto barra-corrida__boton" id="ir-al-diagrama">Diagrama ↑</button>
+  </nav>
+
   <div id="resultados" class="oculto">
+    <h2 class="titulo-etapa">Etapa 1 · Cómo ve el sonido una computadora</h2>
     <div class="figuras">
 
       <figure class="figura figura--ancha" id="figura-forma_de_onda">
         <div class="figura__lienzo"></div>
         <figcaption class="figura__pie">
-          <p class="figura__explicacion">
-            <strong>Forma de onda.</strong> Las muestras tal como están guardadas en el
-            archivo: amplitud contra tiempo. Es todo lo que la computadora recibe; las
-            otras tres representaciones se calculan a partir de aquí.
-          </p>
+          <p class="figura__explicacion"><strong>Forma de onda.</strong> Amplitud contra tiempo:
+            lo único que recibe la computadora.</p>
           <span class="figura__forma" data-forma></span>
         </figcaption>
       </figure>
@@ -208,11 +166,8 @@
       <figure class="figura" id="figura-espectrograma">
         <div class="figura__lienzo"></div>
         <figcaption class="figura__pie">
-          <p class="figura__explicacion">
-            <strong>Espectrograma STFT.</strong> Qué frecuencias suenan en cada instante,
-            por Transformada de Fourier de Tiempo Corto. Las bandas están repartidas por
-            igual en hercios, que no es como las oye el oído.
-          </p>
+          <p class="figura__explicacion"><strong>Espectrograma STFT.</strong> Qué frecuencias suenan
+            en cada instante.</p>
           <span class="figura__forma" data-forma></span>
         </figcaption>
       </figure>
@@ -220,12 +175,8 @@
       <figure class="figura" id="figura-mel">
         <div class="figura__lienzo"></div>
         <figcaption class="figura__pie">
-          <p class="figura__explicacion">
-            <strong>Mel-espectrograma.</strong> Las mismas frecuencias reagrupadas en
-            {{ n_mels }} canales según la escala Mel, que sí imita cómo el oído separa
-            los tonos. Este es el tensor que la etapa 2 le entrega al Perceiver
-            Resampler de XTTS-v2.
-          </p>
+          <p class="figura__explicacion"><strong>Mel-espectrograma.</strong> {{ n_mels }} bandas como
+            las separa el oído: la entrada del Perceiver.</p>
           <span class="figura__forma" data-forma></span>
         </figcaption>
       </figure>
@@ -233,11 +184,8 @@
       <figure class="figura figura--ancha" id="figura-f0">
         <div class="figura__lienzo"></div>
         <figcaption class="figura__pie">
-          <p class="figura__explicacion">
-            <strong>Contorno de F0.</strong> La frecuencia fundamental: la nota que produce
-            la voz al vibrar. Su forma es la entonación, y los huecos en la línea son los
-            tramos donde no hay voz.
-          </p>
+          <p class="figura__explicacion"><strong>Contorno de F0.</strong> La entonación; los huecos
+            son tramos sin voz.</p>
           <span class="figura__forma" data-forma></span>
         </figcaption>
       </figure>
@@ -261,76 +209,54 @@
 
   <section class="panel etapa-dos" aria-labelledby="titulo-identidad">
     <h2 id="titulo-identidad">Etapa 2 · Identidad y estilo de voz</h2>
-    <p>Primero pulsa Analizar en la etapa 1. Después el Perceiver recibirá su mel
-      completo, sin volver a enviar ni procesar el WAV, y lo resumirá en
-      32 vectores de 1024 dimensiones. Esta etapa utiliza pesos reales de XTTS-v2.</p>
-    <p class="ayuda">Estos vectores condicionan la voz y su estilo. No son una prueba
-      de identidad de la persona ni una medida de similitud entre hablantes.</p>
-    <p class="ayuda">El resultado de etapa 1 se conserva diez minutos en memoria.
-      Para comparar, conserva un análisis y procesa otra referencia desde arriba.</p>
+    <p>El Perceiver resume el mel en 32 vectores de 1024 números que condicionan la voz.</p>
     <div class="captura">
-      <button type="button" class="boton" id="conservar-comparacion" disabled>Conservar análisis para comparar</button>
-      <button type="button" class="boton boton--discreto" id="quitar-comparacion">Quitar comparación</button>
       <button type="button" class="boton boton--primario" id="boton-identidad" disabled>Analizar etapa 2</button>
+      <button type="button" class="boton" id="conservar-comparacion" disabled>Conservar para comparar</button>
+      <button type="button" class="boton boton--discreto" id="quitar-comparacion">Quitar comparación</button>
     </div>
     <p id="referencia-comparacion" class="ayuda">Sin referencia conservada.</p>
     <p id="estado-identidad" role="status" aria-live="polite"></p>
     <div id="resultados-identidad" class="comparacion-identidad"></div>
-    <p class="ayuda">Cada mapa de atención corresponde a una capa y al promedio de
-      ocho cabezas sobre el mel completo de etapa 1. El color usa una escala de potencia
-      para revelar pesos pequeños; la barra conserva sus valores reales. Los pesos no se
-      renormalizan. La similitud entre consultas no mide identidad ni calidad de una voz.</p>
   </section>
 
   <section class="panel etapa-tres" aria-labelledby="titulo-generacion">
-    <h2 id="titulo-generacion">Etapa 3 · Generación de tokens con GPT-2</h2>
-    <p>El GPT-2 de XTTS-v2 recibe los 32 vectores de la etapa 2 seguidos del texto en
-      fichas BPE, y predice uno a uno tokens de audio. Cada token es uno de los 1024
-      códigos con los que XTTS-v2 describe el sonido. Todavía no hay voz final: el
-      resultado de esta etapa es la secuencia.</p>
-    <p class="ayuda">En CPU cada token tarda decenas de milisegundos; una oración corta
-      produce entre 100 y 300 tokens. El modelo se detiene solo al emitir su token de fin
-      o al llegar al tope.</p>
+    <h2 id="titulo-generacion">Etapa 3 · El GPT-2 genera tokens de audio</h2>
+    <p>Con los 32 vectores y el texto, el GPT-2 predice uno a uno códigos de audio.</p>
 
     <label class="etiqueta-campo" for="texto-generacion">Texto que dirá la voz</label>
-    <textarea id="texto-generacion" class="campo-texto" rows="3" maxlength="239"
+    <textarea id="texto-generacion" class="campo-texto" rows="2" maxlength="239"
       placeholder="Escribe una oración en español."></textarea>
     <p class="ayuda contador" id="contador-texto">0 / 239</p>
 
     <div class="captura">
       <label class="ayuda casilla"><input type="checkbox" id="determinista">
-        El más probable en cada paso, sin azar</label>
+        Sin azar (el más probable)</label>
       <button type="button" class="boton boton--primario" id="boton-generar" disabled>Generar</button>
       <button type="button" class="boton" id="boton-detener" disabled>Detener</button>
-      <button type="button" class="boton boton--discreto" id="guardar-corrida" disabled>Guardar corrida</button>
+      <button type="button" class="boton boton--discreto" id="guardar-corrida" disabled>Guardar</button>
       <label class="boton boton--discreto" id="etiqueta-reproducir">
         <input type="file" id="archivo-corrida" accept=".json,application/json" class="solo-lectores">
-        Reproducir corrida
+        Reproducir
       </label>
     </div>
     <p id="estado-generacion" role="status" aria-live="polite"></p>
 
     <div id="resultados-generacion" class="oculto">
-      <h3 class="subtitulo-etapa">El texto en fichas BPE</h3>
+      <h3 class="subtitulo-etapa">Fichas BPE y tokens de audio</h3>
       <div class="fichas" id="fichas-bpe"></div>
-      <p class="ayuda">El tokenizador BPE de XTTS-v2 (6681 fichas) parte el texto en minúsculas
-        en trozos frecuentes; ␣ es un espacio y [es] indica el idioma. Estas fichas, entre un
-        inicio y un fin de texto, van después de los 32 vectores de voz.</p>
-
-      <h3 class="subtitulo-etapa">Tokens de audio, uno por paso</h3>
       <div class="progreso" aria-hidden="true"><span class="progreso__relleno" id="progreso-relleno"></span></div>
       <p class="ayuda progreso__texto" id="progreso-texto"></p>
       <div class="tokens-audio" id="tokens-audio" aria-label="Tokens de audio generados"></div>
-      <p class="ayuda">Cada número es un código de audio (0 a 1023); 1025 es el token de fin.
-        El resaltado es el último. Al pasar el puntero se ve la probabilidad con que el modelo
-        lo eligió.</p>
+      <p class="ayuda">␣ es un espacio. Cada número es un código de audio (0–1023); 1025 es el fin.
+        Pasa el puntero sobre un token para ver su probabilidad.</p>
 
       <figure class="figura figura-generacion">
         <div class="pestanas" role="tablist" aria-label="Capa observada" id="pestanas-capas"></div>
         <canvas class="mapa-generacion" id="mapa-generacion" role="img"
           aria-label="Mapa de atención de toda la secuencia, una fila por paso"></canvas>
         <div class="leyenda-zonas">
-          <span><i class="marca marca--voz"></i>32 vectores de voz</span>
+          <span><i class="marca marca--voz"></i>voz</span>
           <span><i class="marca marca--texto"></i>texto</span>
           <span><i class="marca marca--audio"></i>tokens de audio</span>
         </div>
@@ -338,25 +264,17 @@
           <canvas id="zoom-texto" role="img" aria-label="Atención dirigida a cada ficha del texto, una fila por paso"></canvas>
         </div>
         <figcaption class="figura__pie">
-          <p class="figura__explicacion">
-            <strong>Atención del GPT-2.</strong> Cada fila es un paso: a qué posiciones de la
-            secuencia miró el modelo para elegir ese token, promediando sus cabezas. La
-            secuencia crece un token por paso, por eso el mapa se ensancha hacia abajo. Arriba,
-            la secuencia completa; abajo, solo la parte del texto, con cada ficha BPE: la
-            diagonal que suele aparecer es el modelo "leyendo" el texto mientras genera.
-          </p>
+          <p class="figura__explicacion"><strong>Atención del GPT-2.</strong> Una fila por paso: a
+            dónde miró para elegir cada token. Abajo, solo el texto.</p>
           <p class="figura__explicacion" id="lectura-atencion"></p>
           <p class="ayuda"><label><input type="checkbox" id="escala-absoluta">
-            Escala absoluta: el mismo color es el mismo peso en todos los pasos</label></p>
+            Escala absoluta (compara pasos)</label></p>
           <p class="ayuda" id="nota-escala"></p>
         </figcaption>
       </figure>
 
       <h3 class="subtitulo-etapa">Todas las capas y todas las cabezas</h3>
-      <p class="ayuda">El mapa de arriba promedia las cabezas de tres capas. Aquí cada celda es
-        una cabeza de atención, sin promediar: una fila por capa y una columna por cabeza. El
-        color dice a dónde manda su peso al elegir cada token, en promedio sobre los pasos
-        recibidos. Pulsa una celda para leerla; la última columna (μ) es el promedio de la capa.</p>
+      <p class="ayuda">Una celda por cabeza, sin promediar; μ es el promedio de la capa. Pulsa una.</p>
       <div class="panel-cabezas">
         <div class="rejilla-cabezas">
           <canvas id="rejilla-cabezas" role="img" tabindex="0"
@@ -374,7 +292,7 @@
       <p class="figura__explicacion" id="lectura-cabeza"></p>
       <div class="captura">
         <button type="button" class="boton boton--discreto" id="boton-mapa-cabeza" disabled>Ver su mapa completo</button>
-        <button type="button" class="boton boton--discreto" id="boton-cabezas-causal" disabled>Apagar una a una las cabezas de esta capa</button>
+        <button type="button" class="boton boton--discreto" id="boton-cabezas-causal" disabled>Apagar las cabezas de esta capa</button>
       </div>
       <p class="ayuda" id="estado-cabeza" role="status" aria-live="polite"></p>
       <canvas class="mapa-generacion oculto" id="mapa-cabeza" role="img"
@@ -382,12 +300,10 @@
       <p class="ayuda" id="pie-mapa-cabeza"></p>
       <div id="barras-cabezas"></div>
 
-      <h3 class="subtitulo-etapa">Mirar no es causar</h3>
-      <p class="ayuda">Que una posición reciba mucha atención no prueba que haya causado la
-        decisión: la atención describe, no explica. Es un debate abierto (Jain y Wallace, 2019,
-        frente a Wiegreffe y Pinter, 2019) y aquí no se resuelve. Lo que sí se puede hacer es
-        intervenir: se impide que los tokens de audio miren a la voz o al texto, se repite el
-        cálculo y se mide cuánto cambia la probabilidad del token que el modelo había elegido.</p>
+      <h3 class="subtitulo-etapa" id="titulo-causal">Mirar no es causar</h3>
+      <p class="ayuda">Mucha atención no prueba que una parte causara la decisión (Jain y Wallace,
+        2019; Wiegreffe y Pinter, 2019). Aquí se interviene: se bloquea la atención y se mide cuánto
+        cambia la elección.</p>
       <div class="captura">
         <button type="button" class="boton" id="boton-causal" disabled>Medir el efecto de intervenir</button>
       </div>
@@ -398,13 +314,13 @@
         <div class="leyenda-zonas">
           <span><i class="marca marca--voz"></i>voz</span>
           <span><i class="marca marca--texto"></i>texto</span>
-          <span><i class="marca marca--audio"></i>tokens de audio (solo arriba: no se bloquea)</span>
+          <span><i class="marca marca--audio"></i>tokens de audio (no se bloquea)</span>
         </div>
         <table class="tabla tabla-causal">
           <caption class="solo-lectores">Efecto de cada intervención sobre la decisión del modelo</caption>
           <thead><tr>
             <th scope="col">Se bloquea la atención a</th><th scope="col">En las capas</th>
-            <th scope="col">Atención que recibía en esas capas</th><th scope="col">Probabilidad del token elegido</th>
+            <th scope="col">Atención que recibía</th><th scope="col">Probabilidad del token elegido</th>
             <th scope="col">Cambia el más probable</th>
           </tr></thead>
           <tbody id="tabla-causal"></tbody>
@@ -414,74 +330,55 @@
       <details class="detalle">
         <summary>Qué resuelven estas vistas y qué no</summary>
         <ul class="lista-limites">
-          <li><strong>Cabezas.</strong> La rejilla y el mapa por cabeza no promedian: si una
-            cabeza mira la voz y otra el texto, se ven separadas.</li>
-          <li><strong>Capas.</strong> La rejilla cubre todas las capas en vivo, y el mapa
-            completo se puede pedir para cualquiera. Las tres pestañas de arriba siguen siendo
-            una muestra.</li>
-          <li><strong>Escala.</strong> La rejilla y el mapa por cabeza usan una sola escala.
-            El mapa en vivo puede cambiarse a escala absoluta; por omisión cada fila sigue
-            escalada a su propio máximo, que revela más detalle pero no compara pasos.</li>
-          <li><strong>Causalidad.</strong> Bloquear atención es una intervención real, pero
-            deja al modelo en una situación que no vio al entrenar: mide dependencia, no una
-            "importancia" única. Dos zonas pueden ser redundantes y parecer poco necesarias
-            por separado.</li>
-          <li><strong>Modo <code>eager</code>.</strong> Se sigue usando para leer los pesos;
-            <code>verificar_etapa3.py</code> comprueba que los tokens no cambian.</li>
-          <li><strong>Observar no altera.</strong> Los ganchos son pasivos durante la
-            generación. Las intervenciones se hacen después, sobre la secuencia ya generada,
-            y no modifican los tokens ni el audio.</li>
+          <li><strong>Cabezas y capas.</strong> La rejilla no promedia y cubre las 30 capas; el mapa
+            completo se pide para cualquier cabeza. Las tres pestañas de arriba son una muestra.</li>
+          <li><strong>Escala.</strong> Rejilla y mapa por cabeza usan una sola escala; el mapa en vivo
+            escala cada fila a su máximo salvo con escala absoluta.</li>
+          <li><strong>Causalidad.</strong> Bloquear atención saca al modelo de lo que vio al
+            entrenar: mide dependencia, no una "importancia" única. Zonas redundantes pueden
+            parecer innecesarias por separado.</li>
+          <li><strong>Modo <code>eager</code>.</strong> Necesario para leer los pesos; los tokens
+            son idénticos (<code>verificar_etapa3.py</code>).</li>
+          <li><strong>Observar no altera.</strong> Los ganchos son pasivos; las intervenciones
+            ocurren después y no cambian tokens ni audio.</li>
         </ul>
       </details>
       <dl class="resumen" id="resumen-generacion"></dl>
     </div>
 
-    <section class="fases" aria-labelledby="titulo-fases">
-      <h3 class="subtitulo-etapa" id="titulo-fases">Escuchar por fases</h3>
-      <p class="ayuda">Audio crudo de cada transformación, calculado al pedirlo. Suena
-        metálico porque Griffin-Lim adivina la fase que el mel descartó, y apagado porque
-        el mel no guarda nada arriba de 8 kHz. Es la representación intermedia hecha
-        audible, no la calidad final: esa la da el vocoder de la etapa 4, más abajo.</p>
+    <details class="fases detalle" aria-labelledby="titulo-fases">
+      <summary id="titulo-fases">Escuchar las representaciones intermedias</summary>
+      <p class="ayuda">Audio crudo (Griffin-Lim): suena metálico y apagado a propósito.</p>
       <ol class="lista-fases" id="lista-fases">
         <li data-fase="original">
-          <div><strong>1. Tu voz original.</strong> El punto de partida.</div>
+          <div><strong>1. Tu voz original.</strong></div>
           <audio controls class="oculto"></audio><span class="ayuda estado-fase"></span>
         </li>
         <li data-fase="mel">
-          <div><strong>2. Desde el mel [80, T].</strong> Lo que conserva el mel de la etapa 1
-            y lo que pierde: la fase y los agudos.</div>
+          <div><strong>2. Desde el mel.</strong> Sin fase ni agudos.</div>
           <button type="button" class="boton boton--discreto" disabled>Escuchar</button>
           <audio controls class="oculto"></audio><span class="ayuda estado-fase"></span>
         </li>
         <li data-fase="identidad">
-          <div><strong>Etapa 2 · 32 vectores.</strong> No tiene fase audible: condicionan la
-            voz, pero no son una señal que se pueda convertir en sonido.</div>
+          <div><strong>Etapa 2.</strong> Los 32 vectores no son una señal audible.</div>
         </li>
         <li data-fase="tokens_referencia">
-          <div><strong>3. Tu voz en tokens.</strong> Tu referencia convertida en códigos de
-            audio y de vuelta: 1024 símbolos bastan para describir una voz.</div>
+          <div><strong>3. Tu voz en tokens</strong> y de vuelta, con el DVAE.</div>
           <button type="button" class="boton boton--discreto" disabled>Escuchar</button>
           <audio controls class="oculto"></audio><span class="ayuda estado-fase"></span>
         </li>
         <li data-fase="tokens_texto">
-          <div><strong>4. El texto nuevo.</strong> Los tokens del GPT-2 convertidos en mel y
-            en sonido: lo que el modelo "dijo", antes de cualquier vocoder neuronal.</div>
+          <div><strong>4. Los tokens del texto nuevo</strong>, con el DVAE.</div>
           <button type="button" class="boton boton--discreto" disabled>Escuchar</button>
           <audio controls class="oculto"></audio><span class="ayuda estado-fase"></span>
         </li>
       </ol>
-      <p class="ayuda">Guardar corrida descarga los eventos de la generación, las
-        explicaciones que hayas pedido y los audios de las fases 2 a 4 que hayas escuchado,
-        para reproducirla sin el modelo. Nada se guarda en el servidor.</p>
-    </section>
+    </details>
   </section>
 
   <section class="panel etapa-cuatro" aria-labelledby="titulo-sintesis">
     <h2 id="titulo-sintesis">Etapa 4 · De los tokens a la voz</h2>
-    <p>El GPT-2 vuelve a leer la secuencia que generó y entrega sus estados internos, un
-      vector de 1024 números por token. El vocoder HiFi-GAN los convierte en la onda a
-      24 000 Hz, guiado por un vector de 512 números que describe al hablante y que se
-      calcula de tu audio de referencia. Es la primera etapa en la que se oye la voz clonada.</p>
+    <p>El HiFi-GAN convierte los estados del GPT-2 en voz a 24 kHz, guiado por tu vector de hablante.</p>
     <div class="captura">
       <button type="button" class="boton boton--primario" id="boton-sintetizar" disabled>Sintetizar la voz</button>
     </div>
@@ -496,13 +393,8 @@
       <figure class="figura" id="figura-sintesis-mels">
         <div class="figura__lienzo"></div>
         <figcaption class="figura__pie">
-          <p class="figura__explicacion">
-            <strong>Tres mels, una escala.</strong> Arriba, tu referencia: dice otro texto,
-            así que solo se compara el timbre y el rango, no el contenido. En medio, lo que
-            describen los tokens según el DVAE. Abajo, el mel de la voz que salió del
-            HiFi-GAN. Los dos últimos son la misma frase: el vocoder no leyó el mel del
-            medio, pero deberían parecerse.
-          </p>
+          <p class="figura__explicacion"><strong>Tres mels, una escala.</strong> Tu referencia (otro
+            texto), lo que describen los tokens (DVAE) y la voz generada.</p>
           <span class="figura__forma" id="forma-sintesis-mels"></span>
         </figcaption>
       </figure>
@@ -510,10 +402,7 @@
       <figure class="figura" id="figura-sintesis-onda">
         <div class="figura__lienzo"></div>
         <figcaption class="figura__pie">
-          <p class="figura__explicacion">
-            <strong>Forma de onda generada.</strong> Las muestras que produce el vocoder,
-            listas para reproducirse.
-          </p>
+          <p class="figura__explicacion"><strong>Forma de onda generada.</strong></p>
           <span class="figura__forma" id="forma-sintesis-onda"></span>
         </figcaption>
       </figure>
@@ -521,9 +410,7 @@
       <dl class="resumen" id="resumen-sintesis"></dl>
 
       <h3 class="subtitulo-etapa">¿Qué aporta el vector de hablante?</h3>
-      <p class="ayuda">Una intervención que se puede oír: los mismos estados del GPT-2 pasan
-        otra vez por el vocoder, pero con el vector de hablante en cero. Lo único que cambia
-        es ese vector, así que la diferencia que escuches es lo que aporta.</p>
+      <p class="ayuda">Los mismos estados del GPT-2, con el vector de hablante en cero.</p>
       <div class="captura">
         <button type="button" class="boton boton--discreto" id="boton-contraste" disabled>Escuchar sin vector de hablante</button>
         <audio id="audio-contraste" controls class="oculto"></audio>
@@ -533,11 +420,8 @@
   </section>
 
   <footer class="pie">
-    Proyecto académico. Los pesos de XTTS-v2 se usan bajo la licencia no comercial
-    CPML. Las etapas 2 a 4 cargan los módulos de XTTS-v2 la primera vez que se usan. Los
-    audios y muestras WAV no se guardan en disco. El mel, los 32 vectores, los tokens, el
-    vector de hablante y el audio generado se descartan al reemplazar la referencia o
-    después de diez minutos; los pesos permanecen cargados mientras el servidor está abierto.
+    Proyecto académico. Pesos de XTTS-v2 bajo licencia no comercial CPML. Ningún audio se
+    guarda en disco; los resultados intermedios se descartan a los diez minutos.
   </footer>
 
 </div>
@@ -547,6 +431,7 @@
 <script src="{{ url_for('static', filename='js/identidad.js') }}"></script>
 <script src="{{ url_for('static', filename='js/generacion.js') }}"></script>
 <script src="{{ url_for('static', filename='js/sintesis.js') }}"></script>
+<script src="{{ url_for('static', filename='js/arquitectura.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pipeline.js') }}"></script>
 </body>
 </html>

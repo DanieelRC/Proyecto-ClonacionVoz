@@ -3,6 +3,8 @@
     POST /api/inferencia            audio + texto -> 202 con el identificador
     WS   /ws/corrida/<id>           cada evento en el momento en que ocurre
     GET  /api/inferencia/<id>/audio el WAV final
+    GET  /api/grabaciones           corridas grabadas de respaldo (etapa 6)
+    GET  /api/grabaciones/<nombre>  una de ellas, para reproducirla sin modelo
 
 El modelo corre en un hilo aparte y deja sus eventos en un registro; el canal
 WebSocket los retransmite. Quien se conecta un instante tarde los recibe desde
@@ -10,6 +12,7 @@ el primero, y si el navegador se desconecta la corrida se detiene.
 """
 
 import json
+import os
 import threading
 import time
 import uuid
@@ -20,17 +23,17 @@ from flask import Blueprint, Response, current_app, jsonify, request, session
 from flask_sock import Sock
 from simple_websocket import ConnectionClosed
 
-from .. import config, graficas
+from .. import config
 from ..analisis import AudioRechazado
 from ..audio import AudioInvalido, nombre_seguro
 from ..fases import a_wav
 from ..generacion import GeneradorOcupado
-from ..graficas_identidad import renderizar_identidades
+from ..grabacion import Traductor, listar_grabaciones, ruta_de_grabacion
 from ..identidad import ModeloNoDisponible
 from ..pipeline import BLOQUES, CorridaCancelada, ejecutar_corrida
 from .generacion import _fabrica_fases, fabrica_generador
 from .identidad import fabrica_identidad
-from .sintesis import fabrica_sintetizador, respuesta_sintesis
+from .sintesis import fabrica_sintetizador
 
 LIMITE_TEXTO = 239
 METODOS_F0 = ("pyin", "yin")
@@ -106,9 +109,8 @@ class ModelosDeCorrida:
         return self.modelos.obtener("sintetizador", fabrica_sintetizador)
 
 
-def figuras_como_uri(por_figura):
-    return {nombre: {tema: graficas.como_data_uri(png) for tema, png in temas.items()}
-            for nombre, temas in por_figura.items()}
+def carpeta_grabaciones():
+    return os.environ.get("CLONVOZ_GRABACIONES", "grabaciones")
 
 
 def crear_rutas_pipeline(app, memoria):
@@ -125,7 +127,7 @@ def crear_rutas_pipeline(app, memoria):
         hacen las rutas sueltas: después de la corrida se puede seguir explorando.
         """
         propietario = estado.propietario
-        mel_referencia = {}
+        traducir = Traductor(nombre, texto, estado.id)
 
         def anotar(**campos):
             try:
@@ -134,31 +136,20 @@ def crear_rutas_pipeline(app, memoria):
                 pass
 
         def emitir(tipo, datos):
+            # Primero se guarda en la sesión; después se traduce al JSON de la página.
             if tipo == "etapa1":
                 memoria.guardar(propietario, nombre, datos)
-                mel_referencia["mel"] = datos.mel
-                salida = datos.como_dict()
-                salida["archivo"] = nombre
-                salida["graficas"] = figuras_como_uri(graficas.renderizar(datos))
-                salida["caducidad_s"] = memoria.caducidad_s
             elif tipo == "etapa2":
                 anotar(identidad=datos.vectores)
-                resumen = datos.como_dict()
-                resumen["archivo"] = nombre
-                resumen["graficas"] = figuras_como_uri(renderizar_identidades([datos])[0])
-                salida = {"resultados": [resumen]}
             elif tipo == "fin":
                 anotar(tokens_audio=np.asarray(datos["tokens"], dtype=np.int64),
                        texto_generado=texto.strip(), texto_ids=datos["texto_ids"], latentes=None)
-                salida = datos
             elif tipo == "etapa4":
                 anotar(embedding_hablante=datos.embedding, latentes=datos.latentes)
                 estado.audio = a_wav(datos.onda, sr=datos.sr)
-                salida = respuesta_sintesis(datos, mel_referencia.get("mel"))
-                salida["id_corrida"] = estado.id
-                salida["texto"] = texto.strip()
-            else:
-                salida = datos
+            salida = traducir(tipo, datos)
+            if tipo == "etapa1":
+                salida["caducidad_s"] = memoria.caducidad_s
             estado.emitir(tipo, salida)
 
         try:
@@ -236,6 +227,19 @@ def crear_rutas_pipeline(app, memoria):
         if estado.audio is None:
             return jsonify(errores=["La corrida todavía no tiene audio."]), 409
         return Response(estado.audio, mimetype="audio/wav", headers={"Cache-Control": "no-store"})
+
+    @rutas.get("/api/grabaciones")
+    def grabaciones():
+        """Las corridas completas guardadas en la carpeta de respaldo."""
+        return jsonify(grabaciones=listar_grabaciones(carpeta_grabaciones()))
+
+    @rutas.get("/api/grabaciones/<nombre>")
+    def grabacion(nombre):
+        try:
+            ruta = ruta_de_grabacion(carpeta_grabaciones(), nombre)
+        except KeyError:
+            return jsonify(errores=["Esa grabación no existe."]), 404
+        return Response(ruta.read_bytes(), mimetype="application/json", headers={"Cache-Control": "no-store"})
 
     @sock.route("/ws/corrida/<identificador>")
     def canal(ws, identificador):

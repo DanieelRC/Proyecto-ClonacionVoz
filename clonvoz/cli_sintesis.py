@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import uuid
 from pathlib import Path
 
 import numpy as np
@@ -10,6 +11,7 @@ from .analisis import AudioRechazado
 from .audio import AudioInvalido
 from .fases import ReconstructorFases, a_wav
 from .generacion import GeneradorTokens
+from .grabacion import Grabador, Traductor
 from .graficas_sintesis import renderizar_sintesis
 from .identidad import CodificadorIdentidad, ModeloNoDisponible, carpeta_modelo
 from .pipeline import BLOQUES, ejecutar_corrida
@@ -51,6 +53,8 @@ def main(argv=None):
     parser.add_argument("--semilla", type=int, default=0, help="Semilla del muestreo")
     parser.add_argument("--sin-explicacion", action="store_true", help="Omitir las intervenciones causales")
     parser.add_argument("--salida", type=Path, help="Carpeta para voz_clonada.wav, tokens.npy, causal.json y las figuras")
+    parser.add_argument("--grabar", type=Path,
+                        help="Guardar la corrida completa (.json) para el modo grabado; ponla en grabaciones/")
     parser.add_argument("--consentimiento", action="store_true", help="Confirmar autorización para procesar esta voz")
     args = parser.parse_args(argv)
 
@@ -58,8 +62,17 @@ def main(argv=None):
         parser.error("Confirma la autorización para usar esta voz en clonación académica con --consentimiento.")
 
     nombres = {identificador: nombre for identificador, nombre, _ in BLOQUES}
+    id_corrida = str(uuid.uuid4())
+    grabador = Grabador() if args.grabar else None
+    traducir = Traductor(args.audio.name, args.texto, id_corrida)
+    if grabador:
+        grabador("corrida", {"id_corrida": id_corrida, "texto": args.texto.strip(),
+                             "determinista": args.determinista, "semilla": args.semilla,
+                             "bloques": [{"id": b, "nombre": n, "ruta": r} for b, n, r in BLOQUES]})
 
     def emitir(tipo, datos):
+        if grabador:
+            grabador(tipo, traducir(tipo, datos))
         if tipo == "bloque" and datos["estado"] != "activo":
             partes = [f"{nombres[datos['id']]}: {datos['estado']}"]
             if datos.get("ms"):
@@ -77,13 +90,19 @@ def main(argv=None):
     try:
         corrida = ejecutar_corrida(args.audio, args.texto, ModelosLocales(args.modelo, args.dispositivo),
                                    emitir, determinista=args.determinista, semilla=args.semilla,
-                                   explicar=not args.sin_explicacion)
+                                   explicar=not args.sin_explicacion, id_corrida=id_corrida)
     except (ModeloNoDisponible, AudioInvalido, AudioRechazado, ValueError) as exc:
         print(f"Error: {exc}")
         return 2
     except KeyboardInterrupt:
         print("\nInterrumpida.")
         return 130
+
+    if grabador:
+        grabador("terminada", {"motivo": "completa"})
+        args.grabar.parent.mkdir(parents=True, exist_ok=True)
+        grabador.guardar(args.grabar)
+        print(f"Corrida grabada en {args.grabar}: ábrela en la página con el modo Grabado.")
 
     sintesis = corrida.sintesis
     print(f"\nVoz clonada: {sintesis.duracion_s:.1f} s a {sintesis.sr} Hz, "
