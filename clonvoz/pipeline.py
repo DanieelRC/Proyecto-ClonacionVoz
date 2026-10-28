@@ -20,6 +20,7 @@ BLOQUES = (
     ("audio", "Audio de referencia", "audio"),
     ("mel", "Mel-espectrograma", "audio"),
     ("perceiver", "Perceiver", "audio"),
+    ("locutor", "Identificación de locutor", "audio"),
     ("texto", "Tokenizador BPE", "texto"),
     ("gpt", "GPT-2", "generacion"),
     ("tokens", "Tokens de audio", "generacion"),
@@ -51,17 +52,20 @@ def ejecutar_corrida(fuente, texto, modelos, emitir, *, detener=None, determinis
     """Audio de referencia + texto -> voz clonada, emitiendo cada paso.
 
     `modelos` entrega los modelos ya cargados: `identidad()`, `generador()`,
-    `sintetizador()` y `fases()` (el DVAE; puede fallar si falta dvae.pth).
+    `sintetizador()`, `fases()` (el DVAE; puede fallar si falta dvae.pth) y
+    `reconocedor()` (etapa 7; puede fallar si no se ha entrenado).
     `emitir(tipo, datos)` recibe:
 
         bloque   {id, estado: activo|listo|omitido, ms, forma, nota}
         etapa1   Analisis          etapa2   Identidad
+        locutor  Identificacion (etapa 7; se omite si no hay reconocedor entrenado)
         inicio / paso / fin        los mismos eventos de la etapa 3
         etapa4   Sintesis          causal   dict de Explicador.efecto_causal
 
     1. Audio y mel (etapa 1).            4. DVAE: el mel que describen los tokens.
-    2. Perceiver (etapa 2).              5. Latentes + HiFi-GAN: la voz (etapa 4).
-    3. GPT-2, token a token (etapa 3).   6. Intervenciones causales, ya con el audio listo.
+    2. Perceiver (etapa 2) y quién       5. Latentes + HiFi-GAN: la voz (etapa 4).
+       habla (etapa 7).                  6. Intervenciones causales, ya con el audio listo.
+    3. GPT-2, token a token (etapa 3).
     """
     def revisar():
         if detener is not None and detener.is_set():
@@ -72,11 +76,11 @@ def ejecutar_corrida(fuente, texto, modelos, emitir, *, detener=None, determinis
         emitir("bloque", {"id": bloque, "estado": "activo", "nota": nota})
         return time.perf_counter()
 
-    def listo(bloque, inicio=None, ms=None, forma=None, nota=None, estado="listo"):
+    def listo(bloque, inicio=None, ms=None, forma=None, nota=None, estado="listo", **extra):
         if ms is None and inicio is not None:
             ms = (time.perf_counter() - inicio) * 1000
         emitir("bloque", {"id": bloque, "estado": estado, "ms": None if ms is None else round(ms, 1),
-                          "forma": forma, "nota": nota})
+                          "forma": forma, "nota": nota, **extra})
 
     # 1. Etapa 1: cargar, validar y calcular las cuatro características.
     activo("audio")
@@ -93,6 +97,17 @@ def ejecutar_corrida(fuente, texto, modelos, emitir, *, detener=None, determinis
                                     analisis.audio.duracion_s, analisis.validacion.advertencias)
     listo("perceiver", ms=identidad.tiempos_ms["codificacion"], forma=list(identidad.vectores.shape))
     emitir("etapa2", identidad)
+
+    # 2b. Etapa 7: la misma salida del Perceiver identifica al locutor. Sin
+    # reconocedor entrenado el bloque queda omitido y la clonación sigue.
+    inicio = activo("locutor")
+    try:
+        locutor = modelos.reconocedor().identificar(identidad.vectores)
+        listo("locutor", inicio, forma=list(identidad.vectores.shape), nota=locutor.locutor,
+              modelo=locutor.modelo.upper())
+        emitir("locutor", locutor)
+    except (ModeloNoDisponible, ValueError) as exc:
+        listo("locutor", inicio, nota=str(exc), estado="omitido")
 
     # 3. Etapa 3: el texto pasa a fichas BPE y el GPT-2 genera; cada token es un evento.
     inicio = activo("texto", "cargando el GPT-2 la primera vez")

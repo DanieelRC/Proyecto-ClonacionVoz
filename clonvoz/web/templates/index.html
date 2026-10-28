@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clonador de voz — Etapas 1 a 6</title>
+<title>Clonador de voz — Etapas 1 a 7</title>
 <!-- Icono incrustado: evita el 404 de /favicon.ico y no depende de ningún archivo. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg fill='%232a78d6'%3E%3Crect x='1' y='6' width='2' height='4' rx='1'/%3E%3Crect x='4.5' y='3' width='2' height='10' rx='1'/%3E%3Crect x='8' y='1' width='2' height='14' rx='1'/%3E%3Crect x='11.5' y='4.5' width='2' height='7' rx='1'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
@@ -220,6 +220,99 @@
     <div id="resultados-identidad" class="comparacion-identidad"></div>
   </section>
 
+  <section class="panel etapa-locutor" aria-labelledby="titulo-locutor">
+    <h2 id="titulo-locutor">Etapa 7 · ¿Quién habla? Reconocimiento del locutor</h2>
+    <p>Los mismos 32 vectores del Perceiver, comparados con los locutores conocidos.</p>
+    <p class="modelo-en-uso" id="modelo-en-uso">Buscando el reconocedor entrenado…</p>
+
+    <div class="captura">
+      <button type="button" class="boton boton--primario" id="boton-locutor" disabled>Identificar esta referencia</button>
+      <button type="button" class="boton boton--discreto" id="recargar-locutores">Recargar reporte</button>
+    </div>
+    <p id="estado-locutor" role="status" aria-live="polite"></p>
+
+    <div id="resultado-locutor" class="oculto">
+      <div class="veredicto" id="veredicto">
+        <p class="veredicto__etiqueta" id="veredicto-etiqueta"></p>
+        <p class="veredicto__nombre" id="veredicto-nombre"></p>
+        <p class="veredicto__detalle" id="veredicto-detalle"></p>
+      </div>
+      <table class="tabla tabla-candidatos">
+        <caption class="solo-lectores">Los tres locutores más parecidos según cada modelo</caption>
+        <thead><tr><th scope="col">Modelo</th><th scope="col">1.º</th><th scope="col">2.º</th><th scope="col">3.º</th></tr></thead>
+        <tbody id="candidatos-locutor"></tbody>
+      </table>
+      <figure class="figura" id="figura-locutor-proyeccion">
+        <div class="figura__lienzo"></div>
+        <figcaption class="figura__pie">
+          <p class="figura__explicacion"><strong>Dónde cae este audio.</strong> Cada punto es un audio de
+            entrenamiento; la estrella es tu referencia.</p>
+        </figcaption>
+      </figure>
+    </div>
+
+    <div id="reporte-locutores" class="oculto">
+      <h3 class="subtitulo-etapa">Qué modelo funciona mejor con tus datos</h3>
+      <dl class="resumen" id="resumen-locutores"></dl>
+      <table class="tabla tabla-modelos">
+        <caption class="solo-lectores">Exactitud y recall de cada modelo en la validación cruzada</caption>
+        <thead><tr><th scope="col">Modelo</th><th scope="col">Configuración</th><th scope="col">Exactitud</th>
+          <th scope="col">Recall (macro)</th><th scope="col">Por pliegue</th><th scope="col">Umbral de desconocido</th></tr></thead>
+        <tbody id="tabla-modelos"></tbody>
+      </table>
+
+      <div class="matrices-locutores" id="matrices-locutores">
+        <figure class="figura" id="figura-matriz_knn">
+          <div class="figura__lienzo"></div>
+          <figcaption class="figura__pie"><p class="figura__explicacion"><strong>Matriz de confusión · KNN.</strong>
+            Filas: quién hablaba. Columnas: a quién eligió el modelo. La diagonal son aciertos.</p></figcaption>
+        </figure>
+        <figure class="figura" id="figura-matriz_gmm">
+          <div class="figura__lienzo"></div>
+          <figcaption class="figura__pie"><p class="figura__explicacion"><strong>Matriz de confusión · GMM.</strong>
+            Misma partición de audios que el KNN: la comparación es justa.</p></figcaption>
+        </figure>
+      </div>
+
+      <details class="detalle">
+        <summary>Búsqueda del KNN: k y distancia</summary>
+        <table class="tabla">
+          <caption class="solo-lectores">Resultado de cada combinación de k y distancia</caption>
+          <thead><tr><th scope="col">k</th><th scope="col">Distancia</th><th scope="col">Exactitud</th><th scope="col">Recall (macro)</th></tr></thead>
+          <tbody id="busqueda-knn"></tbody>
+        </table>
+      </details>
+
+      <details class="detalle">
+        <summary>Recall por locutor</summary>
+        <table class="tabla">
+          <caption class="solo-lectores">Fracción de los audios de cada locutor que cada modelo reconoció</caption>
+          <thead><tr><th scope="col">Locutor</th><th scope="col">Audios</th><th scope="col">KNN</th><th scope="col">GMM</th></tr></thead>
+          <tbody id="recall-locutores"></tbody>
+        </table>
+      </details>
+
+      <figure class="figura" id="figura-proyeccion">
+        <div class="figura__lienzo"></div>
+        <figcaption class="figura__pie"><p class="figura__explicacion"><strong>Espacio de locutores.</strong>
+          El promedio del Perceiver de cada audio, proyectado a 2 dimensiones con PCA. Grupos separados = locutores fáciles de distinguir.</p></figcaption>
+      </figure>
+
+      <details class="detalle">
+        <summary>Cómo leerlo: entradas, normalizaciones y validación</summary>
+        <div class="explicacion-locutor" id="explicacion-locutor"></div>
+      </details>
+
+      <details class="detalle" id="detalle-rechazados">
+        <summary>Audios omitidos del entrenamiento</summary>
+        <ul class="lista-limites" id="lista-rechazados"></ul>
+      </details>
+
+      <h3 class="subtitulo-etapa">Exportar el reporte</h3>
+      <div class="captura exportables" id="exportables"></div>
+    </div>
+  </section>
+
   <section class="panel etapa-tres" aria-labelledby="titulo-generacion">
     <h2 id="titulo-generacion">Etapa 3 · El GPT-2 genera tokens de audio</h2>
     <p>Con los 32 vectores y el texto, el GPT-2 predice uno a uno códigos de audio.</p>
@@ -429,6 +522,7 @@
 <script src="{{ url_for('static', filename='js/grabadora.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 <script src="{{ url_for('static', filename='js/identidad.js') }}"></script>
+<script src="{{ url_for('static', filename='js/locutores.js') }}"></script>
 <script src="{{ url_for('static', filename='js/generacion.js') }}"></script>
 <script src="{{ url_for('static', filename='js/sintesis.js') }}"></script>
 <script src="{{ url_for('static', filename='js/arquitectura.js') }}"></script>

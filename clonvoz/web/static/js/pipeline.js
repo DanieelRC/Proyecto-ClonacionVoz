@@ -25,11 +25,11 @@
   const barra = elemento("barra-corrida");
 
   // A qué panel lleva cada bloque, y a dónde baja la página con cada evento.
-  const DESTINOS = { audio: "resultados", mel: "figura-mel", perceiver: "titulo-identidad",
+  const DESTINOS = { audio: "resultados", mel: "figura-mel", perceiver: "titulo-identidad", locutor: "titulo-locutor",
     texto: "resultados-generacion", gpt: "resultados-generacion", tokens: "tokens-audio",
     dvae: "figura-sintesis-mels", hablante: "titulo-sintesis", hifigan: "titulo-sintesis",
     salida: "titulo-sintesis" };
-  const SEGUIMIENTO = { etapa1: "resultados", etapa2: "titulo-identidad", inicio: "titulo-generacion",
+  const SEGUIMIENTO = { etapa1: "resultados", etapa2: "titulo-identidad", locutor: "titulo-locutor", inicio: "titulo-generacion",
     etapa4: "titulo-sintesis", causal: "titulo-causal" };
   const ESTADOS = { espera: "en espera", activo: "en curso", listo: "listo", omitido: "omitido", error: "con error" };
   const NOMBRES = Object.fromEntries(Arquitectura.bloques.map((b) => [b.id, b.nombre]));
@@ -214,6 +214,7 @@
     const { tipo, datos, t } = evento;
     if (tipo === "corrida") {
       reiniciarDiagrama();
+      Clonvoz.locutor.limpiar();
       siguiendo = true;
       if (!enVivo && datos.texto) {
         campo.value = datos.texto;
@@ -227,6 +228,9 @@
       Clonvoz.etapa1.mostrar(datos, enVivo);
     } else if (tipo === "etapa2") {
       Clonvoz.etapa2.mostrar(datos, enVivo);
+    } else if (tipo === "locutor") {
+      Clonvoz.locutor.mostrar(datos);
+      elemento("barra-texto").textContent = "Locutor: " + datos.locutor + " (" + datos.nombre_modelo + ")";
     } else if (tipo === "inicio") {
       Clonvoz.etapa3.comenzar(enVivo ? "vivo" : "reproduccion");
       Clonvoz.etapa3.aplicar(tipo, datos, t);

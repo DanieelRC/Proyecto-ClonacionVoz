@@ -108,6 +108,9 @@ class ModelosDeCorrida:
     def sintetizador(self):
         return self.modelos.obtener("sintetizador", fabrica_sintetizador)
 
+    def reconocedor(self):
+        return current_app.extensions["locutores"].reconocedor()
+
 
 def carpeta_grabaciones():
     return os.environ.get("CLONVOZ_GRABACIONES", "grabaciones")

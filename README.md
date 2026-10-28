@@ -27,7 +27,7 @@ python -m venv .venv
 
 ### 3. Instalar las dependencias exactas
 
-Un solo archivo cubre las etapas 1 a 5:
+Un solo archivo cubre las etapas 1 a 7:
 
 ```powershell
 python -m pip install --upgrade pip
@@ -546,3 +546,116 @@ contiene tu voz.
 | `clonvoz/grabacion.py` | Formato de corrida grabada; misma traducción de eventos para la web y la CLI |
 | `clonvoz/web/static/js/arquitectura.js` | Diagrama SVG, punto de datos y estados de los bloques |
 | `clonvoz/web/static/js/pipeline.js` | En vivo / grabado, seguimiento del scroll, barra fija y reproductor |
+
+## Etapa 7 — Reconocimiento del locutor
+
+La salida del Perceiver (los 32 vectores de 1024 que condicionan al GPT-2) sirve
+también como huella del hablante. En el diagrama, el Perceiver manda una flecha
+al bloque **Identificación de locutor**, que indica qué modelo decidió (KNN o
+GMM) y el nombre que reconoció. Esto pasa en cada corrida completa, en vivo o
+grabada. Si todavía no hay un reconocedor entrenado, el bloque queda «omitido» y
+la clonación sigue igual.
+
+### Preparar los audios
+
+Una subcarpeta por locutor; el nombre de la subcarpeta es la etiqueta:
+
+```
+datos/locutores/
+  Daniel/  frase1.wav  frase2.mp3  frase3.m4a  …
+  Ana/     …
+```
+
+Se aceptan WAV, MP3, M4A, FLAC, OGG, OPUS, AAC, WMA y WEBM. WAV, FLAC y OGG se
+leen igual que en la etapa 1 (libsndfile y librosa); el resto lo decodifica
+**FFmpeg**, que debe estar en el PATH (o en la ruta que indique
+`$env:CLONVOZ_FFMPEG`). Todo se pasa a mono y 22 050 Hz.
+
+Esta etapa tiene **límites propios**: de 1 a 20 s por audio, configurables con
+`--duracion-minima` y `--duracion-maxima`. Los de la referencia de clonación (3 a
+30 s) no cambian. Los audios no se parten. Se omiten, y quedan anotados en el
+reporte, los audios fuera de límites, los silenciosos, los que no se pueden leer
+y los locutores que tengan menos de 2 audios válidos.
+
+### Entrenar
+
+```powershell
+python -m clonvoz.cli_locutores --consentimiento entrenar datos/locutores
+```
+
+1. Cada audio pasa por el mel y el Perceiver. Los vectores se guardan en
+   `modelos/locutores/embeddings.npz`: al reentrenar solo se procesan los
+   archivos nuevos o modificados.
+2. **Validación cruzada de 5 pliegues por locutor.** En cada pliegue se usan 4
+   audios de cada locutor para entrenar y 1 para probar; cada audio se prueba una
+   sola vez. Los dos modelos usan exactamente la misma partición.
+3. **KNN:** se prueban k = 1, 3 y 5 con distancia coseno y euclidiana, y se
+   queda la mejor combinación.
+4. **GMM:** un modelo por locutor, con 8 componentes fijos (`--componentes`).
+5. Se elige el modelo con **mayor exactitud**; si empatan, el de mayor recall
+   macro, y si empatan en ambos, el KNN. La página muestra cuál se está usando y
+   por qué.
+6. Los dos modelos se reentrenan con todos los audios y se guardan.
+
+Se escribe en `modelos/locutores/`, que está excluida de Git (`$env:CLONVOZ_LOCUTORES`
+cambia la carpeta):
+
+| Archivo | Contenido |
+|---|---|
+| `reconocedor.joblib` | Los dos modelos entrenados, sus umbrales y cuál está en uso |
+| `reporte.json` | Todos los resultados del entrenamiento |
+| `reporte/*.png` | Matrices de confusión de KNN y GMM y proyección PCA |
+| `reporte/*.csv` | Métricas, búsqueda del KNN, recall por locutor, matrices, predicción de cada audio y audios omitidos |
+
+La página lee el modelo y el reporte al abrirse; si reentrenas con el servidor
+abierto, pulsa **Recargar reporte**. Desde la página también se descargan los
+archivos uno a uno o todos juntos en un `.zip`.
+
+Para probar un audio suelto: `python -m clonvoz.cli_locutores --consentimiento identificar audio.m4a`.
+
+`reconocedor.joblib` es un pickle: carga solo archivos que hayas generado tú.
+
+### Entradas y normalizaciones
+
+Cada normalización se ajusta solo con los audios de entrenamiento de cada
+pliegue.
+
+**KNN** (un vector por audio)
+1. Se promedian las 32 consultas → un vector de 1024.
+2. Estandarización z por dimensión. Las dimensiones del Perceiver tienen escalas
+   muy distintas, y sin esto unas pocas dominarían la distancia euclidiana.
+3. Votos ponderados por 1/distancia.
+
+**GMM** (las 32 consultas son 32 observaciones del locutor)
+1. Centrado por consulta: a cada consulta se le resta su media en el
+   entrenamiento. Cada consulta tiene una dirección común a todas las personas, y
+   al quitarla queda lo que distingue a cada locutor (la misma idea que la
+   normalización por media cepstral de los MFCC).
+2. Estandarización z por dimensión.
+3. PCA a 64 dimensiones (`--dimensiones`). Con 4 audios hay 128 observaciones
+   por locutor, que no alcanzan para estimar gaussianas en 1024 dimensiones.
+4. Covarianza diagonal y regularización 1e-3, por la misma razón.
+5. Gana el locutor cuyo GMM da la mayor log-verosimilitud media a las 32
+   observaciones.
+
+**Locutor desconocido.** Con las predicciones de prueba de la validación
+cruzada se fija el umbral que acepta al 95 % de los aciertos (`--aceptacion`).
+Para el KNN es la distancia al audio más cercano del locutor; para el GMM, la
+log-verosimilitud media. Un audio que no pasa el umbral se reporta como
+«Desconocido», junto con el locutor más parecido. El reporte indica qué parte de
+los errores habría atrapado ese umbral.
+
+**Métricas.** *Exactitud*: aciertos entre todos los audios de prueba. *Recall
+(macro)*: la fracción reconocida de cada locutor, promediada entre locutores.
+Con el mismo número de audios por locutor ambas coinciden. Hay una advertencia:
+la k y la distancia del KNN se eligen con los mismos pliegues con los que se
+reportan, así que su exactitud puede ser algo optimista.
+
+| Archivo | Responsabilidad |
+|---|---|
+| `clonvoz/locutores.py` | Lectura de audios (FFmpeg), extracción, KNN, GMM, validación cruzada, umbrales, guardado |
+| `clonvoz/graficas_locutores.py` | Matrices de confusión, proyección PCA y exportación PNG/CSV |
+| `clonvoz/cli_locutores.py` | `entrenar` e `identificar` desde la terminal |
+| `clonvoz/web/locutores.py` | `/api/locutores`, exportación y `/api/locutor` |
+| `clonvoz/web/static/js/locutores.js` | Sección «Etapa 7» de la página |
+| `tests/test_locutores.py` | Pruebas con vectores sintéticos, MP3/M4A con FFmpeg y rutas web |

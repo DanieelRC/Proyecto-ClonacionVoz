@@ -18,6 +18,7 @@ from pathlib import Path
 from . import graficas
 from .fases import a_wav
 from .graficas_identidad import renderizar_identidades
+from .graficas_locutores import renderizar_identificacion
 from .graficas_sintesis import renderizar_sintesis
 
 FORMATO = "clonvoz-corrida-completa"
@@ -38,6 +39,14 @@ def respuesta_sintesis(sintesis, mel_referencia) -> dict:
     datos = sintesis.como_dict()
     datos["graficas"] = figuras_como_uri(renderizar_sintesis(sintesis, mel_referencia))
     datos["audio"] = wav_como_data_uri(sintesis.onda, sintesis.sr)
+    return datos
+
+
+def respuesta_locutor(identificacion, archivo) -> dict:
+    """Identificacion -> el nombre, los candidatos y la proyección con el audio marcado."""
+    datos = identificacion.como_dict()
+    datos["archivo"] = archivo
+    datos["graficas"] = figuras_como_uri(renderizar_identificacion(identificacion))
     return datos
 
 
@@ -62,6 +71,8 @@ class Traductor:
             resumen["archivo"] = self.nombre
             resumen["graficas"] = figuras_como_uri(renderizar_identidades([datos])[0])
             return {"resultados": [resumen]}
+        if tipo == "locutor":
+            return respuesta_locutor(datos, self.nombre)
         if tipo == "etapa4":
             salida = respuesta_sintesis(datos, self.mel)
             salida["id_corrida"] = self.id_corrida

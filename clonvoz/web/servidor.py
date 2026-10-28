@@ -32,6 +32,8 @@ def crear_app() -> Flask:
     app.register_blueprint(crear_rutas_generacion(memoria))
     from .sintesis import crear_rutas_sintesis
     app.register_blueprint(crear_rutas_sintesis(memoria))
+    from .locutores import crear_rutas_locutores
+    app.register_blueprint(crear_rutas_locutores(app, memoria))
     from .pipeline import crear_rutas_pipeline
     app.register_blueprint(crear_rutas_pipeline(app, memoria))
 

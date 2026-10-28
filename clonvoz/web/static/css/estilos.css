@@ -673,6 +673,7 @@ body {
 .nodo--punteada .nodo__caja { stroke-dasharray: 6 4; }
 .nodo__nombre { fill: var(--texto); font-size: 13.5px; font-weight: 600; pointer-events: none; }
 .nodo__dato { fill: var(--texto-tenue); font-size: 11.5px; pointer-events: none; }
+.nodo--listo .nodo__dato.nodo__locutor { fill: var(--texto); font-size: 13.5px; font-weight: 700; }
 .nodo:hover .nodo__caja, .nodo:focus-visible .nodo__caja { stroke: var(--ruta); stroke-width: 2.4; }
 .nodo--activo .nodo__caja { stroke: var(--ruta); stroke-width: 3; fill: color-mix(in srgb, var(--ruta) 12%, var(--superficie));
   animation: latir-nodo 1s var(--curva) infinite alternate; }
@@ -704,8 +705,8 @@ body {
 .reproductor-corrida { display: flex; flex-wrap: wrap; align-items: center; gap: var(--espacio-3); margin-top: var(--espacio-3); }
 .reproductor-corrida__barra { flex: 1 1 160px; }
 .reproductor-corrida__tiempo { margin: 0; font-variant-numeric: tabular-nums; }
-#resultados, .etapa-dos, .etapa-tres, .etapa-cuatro { scroll-margin-top: 4.5rem; }
-#resultados-generacion, #titulo-causal, #titulo-sintesis, #titulo-identidad, #titulo-generacion { scroll-margin-top: 4.5rem; }
+#resultados, .etapa-dos, .etapa-locutor, .etapa-tres, .etapa-cuatro { scroll-margin-top: 4.5rem; }
+#resultados-generacion, #titulo-causal, #titulo-sintesis, #titulo-identidad, #titulo-generacion, #titulo-locutor { scroll-margin-top: 4.5rem; }
 details.fases > summary { font-weight: 600; color: var(--texto); }
 .explicacion-atencion summary { font-weight: 600; }
 
@@ -713,3 +714,26 @@ details.fases > summary { font-weight: 600; color: var(--texto); }
   .barra-corrida { gap: var(--espacio-2); padding: var(--espacio-2) var(--espacio-3); }
   .barra-corrida__texto, #ir-al-diagrama { display: none; }
 }
+
+/* Etapa 7: reconocimiento del locutor. Ruta de audio: sale del Perceiver. */
+.etapa-locutor { margin-top: var(--espacio-6); }
+.modelo-en-uso { padding: var(--espacio-3) var(--espacio-4); border-left: 3px solid var(--ruta-audio);
+  background: var(--superficie-hundida); border-radius: 0 var(--radio-sm) var(--radio-sm) 0; color: var(--texto-suave); }
+.modelo-en-uso strong { color: var(--texto); }
+.veredicto { margin: var(--espacio-4) 0; padding: var(--espacio-4); border: 1px solid var(--borde);
+  border-left: 4px solid var(--ruta-audio); border-radius: var(--radio); animation: aparecer var(--transicion-lenta) var(--curva) both; }
+.veredicto--desconocido { border-left-color: var(--estado-aviso); }
+.veredicto__etiqueta { margin: 0; color: var(--texto-suave); font-size: var(--texto-sm); }
+.veredicto__nombre { margin: var(--espacio-1) 0; font-size: var(--texto-2xl); font-weight: 700; overflow-wrap: anywhere; }
+.veredicto__detalle { margin: 0; color: var(--texto-suave); font-size: var(--texto-sm); font-variant-numeric: tabular-nums; }
+.tabla-candidatos, .tabla-modelos { margin: var(--espacio-3) 0 var(--espacio-4); }
+.etapa-locutor .tabla { display: block; overflow-x: auto; }
+.etapa-locutor .tabla td, .etapa-locutor .tabla th { text-align: left; font-variant-numeric: tabular-nums; }
+.etapa-locutor .detalle .tabla { max-width: 640px; }
+.fila--elegida th, .fila--elegida td { color: var(--texto); font-weight: 600; }
+.etapa-locutor .figura { margin-top: var(--espacio-4); }
+/* Una matriz por renglón: con ~36 locutores, a media columna los nombres no se leen. */
+.matrices-locutores .figura, #figura-proyeccion, #figura-locutor-proyeccion { max-width: 900px; margin-inline: auto; }
+.explicacion-locutor { line-height: 1.6; }
+.explicacion-locutor ol { margin: 0 0 var(--espacio-3); padding-left: 1.4rem; }
+.exportables .boton { text-decoration: none; }

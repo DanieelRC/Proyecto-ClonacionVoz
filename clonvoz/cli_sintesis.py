@@ -14,6 +14,7 @@ from .generacion import GeneradorTokens
 from .grabacion import Grabador, Traductor
 from .graficas_sintesis import renderizar_sintesis
 from .identidad import CodificadorIdentidad, ModeloNoDisponible, carpeta_modelo
+from .locutores import cargar_reconocedor
 from .pipeline import BLOQUES, ejecutar_corrida
 from .sintesis import Sintetizador
 
@@ -40,6 +41,9 @@ class ModelosLocales:
 
     def sintetizador(self):
         return self._uno("sintetizador", lambda: Sintetizador(self.carpeta, self.generador()))
+
+    def reconocedor(self):
+        return self._uno("reconocedor", cargar_reconocedor)
 
 
 def main(argv=None):

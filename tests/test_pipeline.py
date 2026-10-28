@@ -30,7 +30,8 @@ from clonvoz.grabacion import FORMATO, Grabador, Traductor, ruta_de_grabacion
 from clonvoz.identidad import ModeloNoDisponible
 from clonvoz.pipeline import BLOQUES, CorridaCancelada, ejecutar_corrida
 from clonvoz.web.servidor import crear_app
-from test_generacion import ModeloIdentidadChico, dvae_aleatorio, generador_chico, voz_prueba, wav
+from test_generacion import DIMENSION, ModeloIdentidadChico, dvae_aleatorio, generador_chico, voz_prueba, wav
+from test_locutores import reconocedor_chico
 from test_sintesis import sintetizador_chico
 
 warnings.filterwarnings("ignore")
@@ -39,7 +40,8 @@ warnings.filterwarnings("ignore")
 class ModelosChicos:
     """Los modelos reducidos, entregados como los pide el pipeline."""
 
-    def __init__(self, carpeta_dvae=None):
+    def __init__(self, carpeta_dvae=None, con_reconocedor=True):
+        self._reconocedor = reconocedor_chico(DIMENSION) if con_reconocedor else None
         self._generador = generador_chico()
         self._sintetizador = sintetizador_chico(self._generador)
         self._fases = (ReconstructorFases(carpeta_dvae, ModeloIdentidadChico.normas)
@@ -58,6 +60,11 @@ class ModelosChicos:
         if self._fases is None:
             raise ModeloNoDisponible("Falta dvae.pth")
         return self._fases
+
+    def reconocedor(self):
+        if self._reconocedor is None:
+            raise ModeloNoDisponible("No hay un reconocedor entrenado")
+        return self._reconocedor
 
 
 class PruebasPipeline(unittest.TestCase):
@@ -96,7 +103,7 @@ class PruebasPipeline(unittest.TestCase):
 
         tipos = [t for t, _ in eventos if t != "bloque"]
         pasos = tipos.count("paso")
-        self.assertEqual(tipos, ["etapa1", "etapa2", "inicio"] + ["paso"] * pasos +
+        self.assertEqual(tipos, ["etapa1", "etapa2", "locutor", "inicio"] + ["paso"] * pasos +
                          ["fin", "etapa4", "explicando", "causal"])
         self.assertEqual(pasos, len(corrida.generacion.tokens))
         self.assertEqual(corrida.causal["pasos"], pasos)
@@ -118,6 +125,8 @@ class PruebasPipeline(unittest.TestCase):
         self.assertIn("mel", porTipo["etapa1"]["graficas"])
         self.assertIn("atencion", porTipo["etapa2"]["resultados"][0]["graficas"])
         self.assertTrue(porTipo["etapa4"]["audio"].startswith("data:audio/wav;base64,"))
+        self.assertEqual(porTipo["locutor"]["archivo"], "voz.wav")
+        self.assertIn("proyeccion", porTipo["locutor"]["graficas"])
         tiempos = [e["t"] for e in corrida["eventos"]]
         self.assertEqual(tiempos, sorted(tiempos))
 
@@ -136,6 +145,23 @@ class PruebasPipeline(unittest.TestCase):
         self.assertIsNone(corrida.sintesis.mel_dvae)
         self.assertIsNone(corrida.causal)
         self.assertNotIn("causal", [t for t, _ in eventos])
+
+    def test_sin_reconocedor_la_corrida_sigue(self):
+        corrida, eventos = self.correr(ModelosChicos(con_reconocedor=False), explicar=False)
+        locutor = [d for t, d in eventos if t == "bloque" and d["id"] == "locutor"][-1]
+        self.assertEqual(locutor["estado"], "omitido")
+        self.assertIn("reconocedor", locutor["nota"])
+        self.assertNotIn("locutor", [t for t, _ in eventos])
+        self.assertIsNotNone(corrida.sintesis)
+
+    def test_locutor_identificado_en_la_corrida(self):
+        _, eventos = self.correr(ModelosChicos(), explicar=False)
+        bloque = [d for t, d in eventos if t == "bloque" and d["id"] == "locutor"][-1]
+        identificacion = [d for t, d in eventos if t == "locutor"][0]
+        self.assertEqual(bloque["estado"], "listo")
+        self.assertEqual(bloque["nota"], identificacion.locutor)
+        self.assertEqual(bloque["modelo"], identificacion.modelo.upper())
+        self.assertEqual(bloque["forma"], [32, DIMENSION])
 
     def test_cancelacion(self):
         detener = threading.Event()

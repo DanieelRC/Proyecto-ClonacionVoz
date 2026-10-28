@@ -38,3 +38,15 @@ FORMATOS_ACEPTADOS = ("WAV", "WAVEX", "RF64")  # Contenedores aceptados por libs
 def numero_de_frames(n_muestras: int) -> int:
     """Calcula el número de frames de análisis para una cantidad de muestras."""
     return 1 + n_muestras // HOP_LENGTH
+
+# Reconocimiento del locutor (etapa 7). Límites propios: el conjunto de entrenamiento
+# trae frases cortas que no siempre cumplen los de la referencia de clonación.
+LOCUTOR_DURACION_MINIMA_S = 1.0  # Duración mínima de cada audio del conjunto (s)
+LOCUTOR_DURACION_MAXIMA_S = 20.0  # Duración máxima; los audios no se parten (s)
+LOCUTOR_EXTENSIONES = (".wav", ".mp3", ".m4a", ".flac", ".ogg", ".opus", ".aac", ".wma", ".webm")
+LOCUTOR_PLIEGUES = 5  # Validación cruzada: 4 audios de entrenamiento y 1 de prueba por locutor
+LOCUTOR_K = (1, 3, 5)  # Vecinos probados en la búsqueda del KNN
+LOCUTOR_METRICAS = ("coseno", "euclidiana")  # Distancias probadas en la búsqueda del KNN
+LOCUTOR_GMM_COMPONENTES = 8  # Componentes fijos de cada GMM
+LOCUTOR_GMM_DIMENSIONES = 64  # Dimensiones tras PCA para el GMM
+LOCUTOR_ACEPTACION = 0.95  # Fracción de aciertos que acepta el umbral de «desconocido»
